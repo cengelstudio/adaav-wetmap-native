@@ -52,10 +52,10 @@ export default function LoginScreen() {
               />
             </View>
             <Text variant="headlineMedium" style={styles.title}>
-              KKTC Avcılık Federasyonu
+              AdaAv: Sulak Haritası
             </Text>
             <Text variant="bodyLarge" style={styles.subtitle}>
-              Hoş Geldiniz
+              K.K.T.C. Avcılık Federasyonu
             </Text>
           </View>
 
@@ -112,7 +112,7 @@ export default function LoginScreen() {
 
           <View style={styles.footer}>
             <Text variant="bodySmall" style={styles.footerText}>
-              Test hesabı: testuser / test123
+              © 2024 AdaAv
             </Text>
           </View>
         </View>
@@ -142,29 +142,31 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 96,
     height: 96,
-    borderRadius: 48,
+    borderRadius: 24,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    elevation: 4,
-    shadowColor: '#000',
+    elevation: 2,
+    shadowColor: Colors.primary,
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.1,
     shadowRadius: 3.84,
   },
   title: {
-    color: Colors.primary,
+    color: Colors.text,
     textAlign: 'center',
-    fontWeight: 'bold',
+    fontWeight: '600',
     marginBottom: 8,
+    fontSize: 28,
   },
   subtitle: {
     color: Colors.textLight,
     textAlign: 'center',
+    fontSize: 18,
   },
   form: {
     gap: 16,
@@ -173,27 +175,29 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   inputOutline: {
-    borderRadius: 8,
+    borderRadius: 12,
+    borderColor: Colors.border,
   },
   button: {
     marginTop: 8,
     backgroundColor: Colors.primary,
-    borderRadius: 8,
-    elevation: 2,
-    shadowColor: '#000',
+    borderRadius: 12,
+    elevation: 0,
+    shadowColor: Colors.primary,
     shadowOffset: {
       width: 0,
       height: 1,
     },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 1.41,
   },
   buttonContent: {
-    height: 48,
+    height: 52,
   },
   buttonLabel: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
+    color: Colors.white,
   },
   error: {
     color: Colors.error,
