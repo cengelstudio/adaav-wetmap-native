@@ -19,23 +19,45 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textLight,
         tabBarStyle: {
-          borderTopWidth: 1,
-          borderTopColor: Colors.border,
-          height: Platform.select({ ios: 80, android: 60 }),
+          borderTopWidth: 0.5,
+          borderTopColor: Platform.select({ ios: '#D1D1D6', android: Colors.border }),
+          backgroundColor: Platform.select({ ios: 'rgba(255,255,255,0.95)', android: Colors.white }),
+          height: Platform.select({ ios: 88, android: 64 }),
           paddingBottom: Platform.select({ ios: insets.bottom, android: 8 }),
-          paddingTop: 8,
+          paddingTop: Platform.select({ ios: 8, android: 8 }),
+          elevation: 0,
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: -2,
+          },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
         },
         headerStyle: {
-          backgroundColor: Colors.primary,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: 1,
+          },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
         },
         headerTitleStyle: {
-          color: Colors.white,
-          fontSize: 18,
+          color: Colors.text,
+          fontSize: 17,
           fontWeight: '600',
         },
-        headerTintColor: Colors.white,
+        headerTintColor: Colors.primary,
         tabBarLabelStyle: {
-          marginTop: 4,
+          fontSize: 11,
+          fontWeight: '500',
+          marginTop: Platform.select({ ios: 0, android: 2 }),
+        },
+        tabBarIconStyle: {
+          marginTop: Platform.select({ ios: 4, android: 0 }),
         },
       }}
     >
@@ -51,7 +73,7 @@ export default function TabLayout() {
           title: 'Harita',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="map" size={size} color={color} />
+            <MaterialCommunityIcons name="map" size={24} color={color} />
           ),
         }}
       />
@@ -61,7 +83,7 @@ export default function TabLayout() {
           title: 'Konumlar',
           headerTitle: 'Konumlar',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="map-marker-multiple" size={size} color={color} />
+            <MaterialCommunityIcons name="map-marker-multiple" size={24} color={color} />
           ),
         }}
       />
@@ -71,7 +93,7 @@ export default function TabLayout() {
           title: 'Ayarlar',
           headerTitle: 'Hesap Ayarları',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="cog" size={size} color={color} />
+            <MaterialCommunityIcons name="cog" size={24} color={color} />
           ),
         }}
       />

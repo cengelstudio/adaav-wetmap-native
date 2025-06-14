@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Avatar, Button, Divider, Modal, Portal, Surface, Text, TextInput } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
 
@@ -11,6 +12,7 @@ type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 export default function SettingsScreen() {
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [isAddUserModalVisible, setIsAddUserModalVisible] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', username: '', password: '' });
 
@@ -34,74 +36,85 @@ export default function SettingsScreen() {
       onPress={onPress}
       style={({ pressed }) => [
         styles.settingItem,
-        pressed && { opacity: 0.7 }
+        pressed && { backgroundColor: Colors.background }
       ]}
     >
-      <MaterialCommunityIcons name={icon} size={24} color={Colors.primary} style={styles.settingIcon} />
+      <View style={styles.settingIconContainer}>
+        <MaterialCommunityIcons name={icon} size={22} color={Colors.primary} />
+      </View>
       <View style={styles.settingText}>
         <Text variant="bodyLarge" style={styles.settingTitle}>{title}</Text>
         {subtitle && <Text variant="bodySmall" style={styles.settingSubtitle}>{subtitle}</Text>}
       </View>
-      <MaterialCommunityIcons name="chevron-right" size={24} color={Colors.textLight} />
+      <MaterialCommunityIcons name="chevron-right" size={22} color={Colors.textLight} />
     </Pressable>
   );
 
   return (
-    <>
-      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-        <Surface style={styles.profileCard} elevation={2}>
-          <View style={styles.profileHeader}>
-            <Avatar.Icon
-              size={80}
-              icon="account"
-              style={styles.avatar}
-              color={Colors.white}
-            />
-            <View style={styles.profileInfo}>
-              <Text variant="headlineSmall" style={styles.name}>{user?.name}</Text>
-              <Text variant="bodyMedium" style={styles.email}>{user?.email}</Text>
-              <View style={styles.roleChip}>
-                <MaterialCommunityIcons name="shield-account" size={16} color={Colors.primary} />
-                <Text variant="bodySmall" style={styles.roleText}>
-                  {user?.role === 'FEDERATION_OFFICER'
-                    ? 'Federasyon Görevlisi'
-                    : user?.role === 'STATE_OFFICER'
-                    ? 'Devlet Görevlisi'
-                    : 'Yetkili Kişi'}
-                </Text>
-              </View>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.contentContainer,
+        { paddingBottom: insets.bottom + 20 }
+      ]}
+    >
+      <Surface style={styles.profileCard}>
+        <View style={styles.profileHeader}>
+          <Avatar.Icon
+            size={72}
+            icon="account"
+            style={styles.avatar}
+            color={Colors.white}
+          />
+          <View style={styles.profileInfo}>
+            <Text variant="titleLarge" style={styles.name}>{user?.name}</Text>
+            <View style={styles.roleChip}>
+              <MaterialCommunityIcons name="shield-account" size={16} color={Colors.primary} />
+              <Text variant="bodySmall" style={styles.roleText}>
+                {user?.role === 'FEDERATION_OFFICER'
+                  ? 'Federasyon Görevlisi'
+                  : user?.role === 'STATE_OFFICER'
+                  ? 'Devlet Görevlisi'
+                  : 'Yetkili Kişi'}
+              </Text>
             </View>
           </View>
-        </Surface>
-
-        {user?.id !== '1' && (
-          <>
-            <View style={styles.section}>
-              <Text variant="titleMedium" style={styles.sectionTitle}>Yönetim</Text>
-              {renderSettingItem('account-plus', 'Yeni Kullanıcı', 'Yeni kullanıcı ekle', () => setIsAddUserModalVisible(true))}
-              {renderSettingItem('account-group', 'Kullanıcılar', 'Kullanıcıları yönet', () => router.push('/users'))}
-            </View>
-
-            <Divider style={styles.divider} />
-          </>
-        )}
-
-        <View style={styles.section}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>Uygulama</Text>
-          {renderSettingItem('information', 'Hakkında', 'Versiyon 1.0.0')}
-          {renderSettingItem('help-circle', 'Yardım', 'Destek için iletişime geçin', handleHelp)}
         </View>
+      </Surface>
 
-        <Button
-          mode="contained"
-          onPress={handleLogout}
-          style={styles.logoutButton}
-          contentStyle={styles.logoutButtonContent}
-          icon="logout"
-        >
-          Çıkış Yap
-        </Button>
-      </ScrollView>
+      {user?.id !== '1' && (
+        <>
+          <View style={styles.section}>
+            <Text variant="titleMedium" style={styles.sectionTitle}>Yönetim</Text>
+            <Surface style={styles.sectionCard}>
+              {renderSettingItem('account-plus', 'Yeni Kullanıcı', 'Yeni kullanıcı ekle', () => setIsAddUserModalVisible(true))}
+              <Divider style={styles.itemDivider} />
+              {renderSettingItem('account-group', 'Kullanıcılar', 'Kullanıcıları yönet', () => router.push('/users'))}
+            </Surface>
+          </View>
+        </>
+      )}
+
+      <View style={styles.section}>
+        <Text variant="titleMedium" style={styles.sectionTitle}>Uygulama</Text>
+        <Surface style={styles.sectionCard}>
+          {renderSettingItem('information', 'Hakkında', 'Versiyon 1.0.0')}
+          <Divider style={styles.itemDivider} />
+          {renderSettingItem('help-circle', 'Yardım', 'Destek için iletişime geçin', handleHelp)}
+        </Surface>
+      </View>
+
+      <Button
+        mode="contained-tonal"
+        onPress={handleLogout}
+        style={styles.logoutButton}
+        contentStyle={styles.logoutButtonContent}
+        icon="logout"
+        theme={{ colors: { secondaryContainer: '#FFE5E5' }}}
+        textColor="#FF3B30"
+      >
+        Çıkış Yap
+      </Button>
 
       <Portal>
         <Modal
@@ -109,55 +122,57 @@ export default function SettingsScreen() {
           onDismiss={() => setIsAddUserModalVisible(false)}
           contentContainerStyle={styles.modalContainer}
         >
-          <Text variant="titleLarge" style={styles.modalTitle}>Yeni Kullanıcı Ekle</Text>
-          <TextInput
-            label="İsim"
-            value={newUser.name}
-            onChangeText={(text) => setNewUser(prev => ({ ...prev, name: text }))}
-            mode="outlined"
-            style={styles.modalInput}
-          />
-          <TextInput
-            label="Kullanıcı Adı"
-            value={newUser.username}
-            onChangeText={(text) => setNewUser(prev => ({ ...prev, username: text }))}
-            mode="outlined"
-            style={styles.modalInput}
-          />
-          <TextInput
-            label="Şifre"
-            value={newUser.password}
-            onChangeText={(text) => setNewUser(prev => ({ ...prev, password: text }))}
-            mode="outlined"
-            secureTextEntry
-            style={styles.modalInput}
-          />
-          <View style={styles.modalActions}>
-            <Button
+          <Surface style={styles.modalContent}>
+            <Text variant="titleLarge" style={styles.modalTitle}>Yeni Kullanıcı Ekle</Text>
+            <TextInput
+              label="İsim"
+              value={newUser.name}
+              onChangeText={(text) => setNewUser(prev => ({ ...prev, name: text }))}
               mode="outlined"
-              onPress={() => setIsAddUserModalVisible(false)}
-              style={styles.modalButton}
-            >
-              İptal
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleAddUser}
-              style={[styles.modalButton, styles.modalSubmitButton]}
-            >
-              Ekle
-            </Button>
-          </View>
+              style={styles.modalInput}
+            />
+            <TextInput
+              label="Kullanıcı Adı"
+              value={newUser.username}
+              onChangeText={(text) => setNewUser(prev => ({ ...prev, username: text }))}
+              mode="outlined"
+              style={styles.modalInput}
+            />
+            <TextInput
+              label="Şifre"
+              value={newUser.password}
+              onChangeText={(text) => setNewUser(prev => ({ ...prev, password: text }))}
+              mode="outlined"
+              secureTextEntry
+              style={styles.modalInput}
+            />
+            <View style={styles.modalActions}>
+              <Button
+                mode="outlined"
+                onPress={() => setIsAddUserModalVisible(false)}
+                style={styles.modalButton}
+              >
+                İptal
+              </Button>
+              <Button
+                mode="contained"
+                onPress={handleAddUser}
+                style={[styles.modalButton, styles.modalSubmitButton]}
+              >
+                Ekle
+              </Button>
+            </View>
+          </Surface>
         </Modal>
       </Portal>
-    </>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   contentContainer: {
     padding: 16,
@@ -167,6 +182,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     marginBottom: 24,
     overflow: 'hidden',
+    elevation: 0,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+    }),
   },
   profileHeader: {
     padding: 20,
@@ -183,42 +207,42 @@ const styles = StyleSheet.create({
   name: {
     fontWeight: '600',
     color: Colors.text,
-  },
-  email: {
-    color: Colors.textLight,
-    marginTop: 2,
+    fontSize: 20,
+    marginBottom: 8,
   },
   roleChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 8,
+    backgroundColor: Platform.select({
+      ios: 'rgba(0,122,255,0.1)',
+      android: Colors.background,
+    }),
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    marginTop: 0,
     alignSelf: 'flex-start',
   },
   roleText: {
     color: Colors.primary,
-    marginLeft: 4,
+    marginLeft: 6,
     fontWeight: '500',
   },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
-    color: Colors.text,
+    color: Colors.textLight,
     fontWeight: '600',
-    marginBottom: 16,
+    marginBottom: 12,
     marginLeft: 4,
+    fontSize: 15,
   },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  sectionCard: {
+    borderRadius: 16,
     backgroundColor: Colors.white,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
+    overflow: 'hidden',
+    elevation: 0,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -226,13 +250,24 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 2,
       },
-      android: {
-        elevation: 2,
-      },
     }),
   },
-  settingIcon: {
-    marginRight: 16,
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  settingIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: Platform.select({
+      ios: 'rgba(0,122,255,0.1)',
+      android: Colors.background,
+    }),
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   settingText: {
     flex: 1,
@@ -245,26 +280,28 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
     marginTop: 2,
   },
-  divider: {
-    marginVertical: 24,
+  itemDivider: {
     backgroundColor: Colors.border,
+    height: 0.5,
   },
   logoutButton: {
-    backgroundColor: Colors.error,
     marginTop: 8,
-    marginBottom: Platform.OS === 'ios' ? 32 : 16,
+    borderRadius: 12,
   },
   logoutButtonContent: {
-    paddingVertical: 8,
+    height: 48,
   },
   modalContainer: {
-    backgroundColor: Colors.white,
-    margin: 20,
     padding: 20,
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    padding: 24,
     borderRadius: 16,
   },
   modalTitle: {
     marginBottom: 20,
+    textAlign: 'center',
     color: Colors.text,
     fontWeight: '600',
   },
@@ -276,9 +313,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 12,
+    marginTop: 8,
   },
   modalButton: {
-    minWidth: 100,
+    flex: 1,
+    borderRadius: 12,
   },
   modalSubmitButton: {
     backgroundColor: Colors.primary,
