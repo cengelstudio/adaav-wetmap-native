@@ -1,12 +1,14 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, FlatList, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Card, Chip, Divider, Modal, Portal, Searchbar, Text, TextInput } from 'react-native-paper';
+import { Alert, Animated, FlatList, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Button, Card, Chip, Modal, Portal, Searchbar, Surface, Text, TextInput } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/Colors';
 import { locationService } from '../../services/api';
 import { Location, LocationType } from '../../types';
 
 export default function MarkersScreen() {
+  const insets = useSafeAreaInsets();
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -135,55 +137,59 @@ export default function MarkersScreen() {
   };
 
   const renderLocationCard = ({ item }: { item: Location }) => (
-    <Card
-      style={styles.card}
-      mode="elevated"
+    <Pressable
       onPress={() => handleEditLocation(item)}
+      style={({ pressed }) => [
+        styles.cardPressable,
+        pressed && { opacity: 0.7 }
+      ]}
     >
-      <Card.Content style={styles.cardContent}>
-        <View style={styles.cardHeader}>
-          <View style={[
-            styles.iconContainer,
-            { backgroundColor: item.type === 'WETLAND' ? Colors.secondary : Colors.primary }
-          ]}>
-            <MaterialCommunityIcons
-              name={item.type === 'WETLAND' ? 'water' : 'warehouse'}
-              size={20}
-              color={Colors.white}
-            />
-          </View>
-          <Text variant="titleMedium" style={styles.cardTitle}>
-            {item.title}
-          </Text>
-        </View>
-
-        {item.description ? (
-          <Text variant="bodyMedium" style={styles.description}>
-            {item.description}
-          </Text>
-        ) : null}
-
-        <View style={styles.coordinates}>
-          <View style={styles.coordinateItem}>
-            <MaterialCommunityIcons name="latitude" size={16} color={Colors.textLight} />
-            <Text variant="bodySmall" style={styles.coordinateText}>
-              {item.latitude.toFixed(4)}
+      <Surface style={styles.card} elevation={0}>
+        <Card.Content style={styles.cardContent}>
+          <View style={styles.cardHeader}>
+            <View style={[
+              styles.iconContainer,
+              { backgroundColor: item.type === 'WETLAND' ? 'rgba(52, 199, 89, 0.1)' : 'rgba(0, 122, 255, 0.1)' }
+            ]}>
+              <MaterialCommunityIcons
+                name={item.type === 'WETLAND' ? 'water' : 'warehouse'}
+                size={22}
+                color={item.type === 'WETLAND' ? Colors.secondary : Colors.primary}
+              />
+            </View>
+            <Text variant="titleMedium" style={styles.cardTitle}>
+              {item.title}
             </Text>
           </View>
-          <View style={styles.coordinateItem}>
-            <MaterialCommunityIcons name="longitude" size={16} color={Colors.textLight} />
-            <Text variant="bodySmall" style={styles.coordinateText}>
-              {item.longitude.toFixed(4)}
+
+          {item.description ? (
+            <Text variant="bodyMedium" style={styles.description}>
+              {item.description}
             </Text>
+          ) : null}
+
+          <View style={styles.coordinates}>
+            <View style={styles.coordinateItem}>
+              <MaterialCommunityIcons name="latitude" size={16} color={Colors.textLight} />
+              <Text variant="bodySmall" style={styles.coordinateText}>
+                {item.latitude.toFixed(4)}
+              </Text>
+            </View>
+            <View style={styles.coordinateItem}>
+              <MaterialCommunityIcons name="longitude" size={16} color={Colors.textLight} />
+              <Text variant="bodySmall" style={styles.coordinateText}>
+                {item.longitude.toFixed(4)}
+              </Text>
+            </View>
           </View>
-        </View>
-      </Card.Content>
-    </Card>
+        </Card.Content>
+      </Surface>
+    </Pressable>
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <Surface style={styles.header} elevation={0}>
         <Searchbar
           placeholder="Konum ara..."
           onChangeText={setSearchQuery}
@@ -192,14 +198,19 @@ export default function MarkersScreen() {
           inputStyle={styles.searchInput}
           iconColor={Colors.textLight}
           placeholderTextColor={Colors.textLight}
+          elevation={0}
         />
-        <View style={styles.filterContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContainer}
+        >
           <Chip
             selected={selectedType === null}
             onPress={() => setSelectedType(null)}
             style={styles.filterChip}
             showSelectedOverlay
-            elevation={1}
+            elevation={0}
           >
             Tümü
           </Chip>
@@ -208,7 +219,7 @@ export default function MarkersScreen() {
             onPress={() => setSelectedType('WETLAND')}
             style={styles.filterChip}
             showSelectedOverlay
-            elevation={1}
+            elevation={0}
           >
             Sulak Alan
           </Chip>
@@ -217,20 +228,21 @@ export default function MarkersScreen() {
             onPress={() => setSelectedType('STORAGE')}
             style={styles.filterChip}
             showSelectedOverlay
-            elevation={1}
+            elevation={0}
           >
             Depo
           </Chip>
-        </View>
-      </View>
-
-      <Divider style={styles.divider} />
+        </ScrollView>
+      </Surface>
 
       <FlatList
         data={filteredLocations}
         renderItem={renderLocationCard}
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: insets.bottom + 20 }
+        ]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -243,15 +255,15 @@ export default function MarkersScreen() {
                 />
               </Animated.View>
             ) : (
-              <MaterialCommunityIcons
-                name="map-marker-off"
-                size={48}
-                color={Colors.textLight}
-              />
+              <>
+                <MaterialCommunityIcons
+                  name="map-marker-off"
+                  size={48}
+                  color={Colors.textLight}
+                />
+                <Text style={styles.emptyText}>Konum bulunamadı</Text>
+              </>
             )}
-            <Text variant="bodyLarge" style={styles.emptyText}>
-              {loading ? 'Yükleniyor...' : 'Konum bulunamadı'}
-            </Text>
           </View>
         }
       />
@@ -260,114 +272,93 @@ export default function MarkersScreen() {
         <Modal
           visible={editModalVisible}
           onDismiss={() => setEditModalVisible(false)}
-          contentContainerStyle={styles.modal}
+          contentContainerStyle={styles.modalContainer}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-          >
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
+          <Surface style={styles.modalContent}>
+            <View style={styles.modalHeader}>
               <Text variant="titleLarge" style={styles.modalTitle}>
                 Konum Düzenle
               </Text>
-              <View style={styles.modalContent}>
-                <TextInput
-                  label="Başlık"
-                  value={editTitle}
-                  onChangeText={setEditTitle}
-                  mode="outlined"
-                  style={styles.input}
-                />
-                <TextInput
-                  label="Açıklama"
-                  value={editDescription}
-                  onChangeText={setEditDescription}
-                  mode="outlined"
-                  style={styles.input}
-                  multiline
-                  numberOfLines={3}
-                />
-                <View style={styles.coordinates}>
-                  <TextInput
-                    label="Enlem"
-                    value={selectedLocation?.latitude.toString()}
-                    disabled
-                    mode="outlined"
-                    style={styles.coordinateInput}
-                  />
-                  <TextInput
-                    label="Boylam"
-                    value={selectedLocation?.longitude.toString()}
-                    disabled
-                    mode="outlined"
-                    style={styles.coordinateInput}
-                  />
-                </View>
-                <View style={styles.typeSelection}>
-                  <Text variant="bodyMedium" style={styles.typeLabel}>Konum Türü</Text>
-                  <View style={styles.typeButtons}>
-                    <Button
-                      mode={editType === 'WETLAND' ? 'contained' : 'outlined'}
-                      onPress={() => setEditType('WETLAND')}
-                      style={[
-                        styles.typeButton,
-                        editType === 'WETLAND' && { backgroundColor: Colors.secondary }
-                      ]}
-                      icon="water"
-                      contentStyle={styles.typeButtonContent}
-                    >
-                      Sulak Alan
-                    </Button>
-                    <Button
-                      mode={editType === 'STORAGE' ? 'contained' : 'outlined'}
-                      onPress={() => setEditType('STORAGE')}
-                      style={[
-                        styles.typeButton,
-                        editType === 'STORAGE' && { backgroundColor: Colors.primary }
-                      ]}
-                      icon="warehouse"
-                      contentStyle={styles.typeButtonContent}
-                    >
-                      Depo
-                    </Button>
-                  </View>
-                </View>
-                <View style={styles.modalActions}>
-                  <Button
-                    mode="outlined"
-                    onPress={handleDelete}
-                    style={styles.deleteButton}
-                    textColor={Colors.error}
-                    loading={saving}
-                    disabled={saving}
-                  >
-                    Sil
-                  </Button>
-                  <View style={styles.rightButtons}>
-                    <Button
-                      mode="outlined"
-                      onPress={() => setEditModalVisible(false)}
-                      style={styles.cancelButton}
-                    >
-                      İptal
-                    </Button>
-                    <Button
-                      mode="contained"
-                      onPress={handleSaveEdit}
-                      loading={saving}
-                      disabled={saving || !editTitle}
-                      style={styles.submitButton}
-                    >
-                      Kaydet
-                    </Button>
-                  </View>
-                </View>
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={Colors.textLight}
+                onPress={() => setEditModalVisible(false)}
+                style={styles.modalCloseButton}
+              />
+            </View>
+
+            <View style={styles.modalForm}>
+              <TextInput
+                label="Başlık"
+                value={editTitle}
+                onChangeText={setEditTitle}
+                mode="outlined"
+                style={styles.modalInput}
+              />
+              <TextInput
+                label="Açıklama"
+                value={editDescription}
+                onChangeText={setEditDescription}
+                mode="outlined"
+                style={styles.modalInput}
+                multiline
+                numberOfLines={3}
+              />
+
+              <Text variant="bodyMedium" style={styles.modalLabel}>Konum Türü</Text>
+              <View style={styles.modalChips}>
+                <Chip
+                  selected={editType === 'WETLAND'}
+                  onPress={() => setEditType('WETLAND')}
+                  style={[styles.modalChip, { backgroundColor: editType === 'WETLAND' ? 'rgba(52, 199, 89, 0.1)' : Colors.background }]}
+                  textStyle={{ color: editType === 'WETLAND' ? Colors.secondary : Colors.textLight }}
+                  showSelectedOverlay
+                >
+                  Sulak Alan
+                </Chip>
+                <Chip
+                  selected={editType === 'STORAGE'}
+                  onPress={() => setEditType('STORAGE')}
+                  style={[styles.modalChip, { backgroundColor: editType === 'STORAGE' ? 'rgba(0, 122, 255, 0.1)' : Colors.background }]}
+                  textStyle={{ color: editType === 'STORAGE' ? Colors.primary : Colors.textLight }}
+                  showSelectedOverlay
+                >
+                  Depo
+                </Chip>
               </View>
-            </ScrollView>
-          </KeyboardAvoidingView>
+
+              <View style={styles.modalActions}>
+                <Button
+                  mode="outlined"
+                  onPress={() => setEditModalVisible(false)}
+                  style={styles.modalButton}
+                >
+                  İptal
+                </Button>
+                <Button
+                  mode="contained"
+                  onPress={handleSaveEdit}
+                  style={[styles.modalButton, styles.modalSubmitButton]}
+                  loading={saving}
+                  disabled={saving}
+                >
+                  Kaydet
+                </Button>
+              </View>
+
+              <Button
+                mode="contained-tonal"
+                onPress={handleDelete}
+                style={styles.deleteButton}
+                textColor="#FF3B30"
+                theme={{ colors: { secondaryContainer: '#FFE5E5' }}}
+                icon="delete"
+              >
+                Konumu Sil
+              </Button>
+            </View>
+          </Surface>
         </Modal>
       </Portal>
     </View>
@@ -380,38 +371,36 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
     backgroundColor: Colors.white,
-    paddingTop: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
   },
   searchBar: {
-    marginHorizontal: 16,
+    backgroundColor: Platform.select({
+      ios: 'rgba(142,142,147,0.12)',
+      android: Colors.background,
+    }),
+    borderRadius: 12,
     marginBottom: 12,
     elevation: 0,
-    backgroundColor: Colors.background,
-    borderRadius: 12,
+    height: 40,
   },
   searchInput: {
     fontSize: 16,
+    minHeight: 40,
   },
   filterContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingVertical: 4,
     gap: 8,
+    marginTop: -4,
   },
   filterChip: {
-    backgroundColor: Colors.white,
-  },
-  divider: {
-    backgroundColor: Colors.border,
+    backgroundColor: Colors.background,
+    borderRadius: 16,
   },
   listContent: {
     padding: 16,
@@ -420,29 +409,34 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.white,
     borderRadius: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   cardContent: {
-    gap: 12,
+    padding: 16,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    marginBottom: 8,
   },
   iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   cardTitle: {
     flex: 1,
@@ -451,6 +445,7 @@ const styles = StyleSheet.create({
   },
   description: {
     color: Colors.textLight,
+    marginBottom: 12,
   },
   coordinates: {
     flexDirection: 'row',
@@ -466,84 +461,90 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 32,
-    gap: 8,
+    justifyContent: 'center',
+    paddingVertical: 48,
   },
   emptyText: {
     color: Colors.textLight,
+    marginTop: 12,
+    fontSize: 16,
   },
-  modal: {
-    backgroundColor: Colors.white,
-    padding: 24,
-    marginHorizontal: 20,
-    marginVertical: Platform.OS === 'ios' ? 40 : 20,
-    borderRadius: 16,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  modalTitle: {
-    color: Colors.primary,
-    marginBottom: 20,
-    fontWeight: '600',
+  modalContainer: {
+    padding: 20,
+    margin: 0,
   },
   modalContent: {
-    gap: 16,
-  },
-  input: {
     backgroundColor: Colors.white,
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
-  typeSelection: {
-    gap: 8,
-    backgroundColor: Colors.background,
-    padding: 12,
-    borderRadius: 12,
-  },
-  typeLabel: {
-    color: Colors.textLight,
-    marginLeft: 4,
-    marginBottom: 4,
-  },
-  typeButtons: {
+  modalHeader: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
   },
-  typeButton: {
+  modalTitle: {
+    color: Colors.text,
+    fontWeight: '600',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalForm: {
+    padding: 24,
+  },
+  modalLabel: {
+    color: Colors.textLight,
+    marginBottom: 8,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  modalInput: {
+    backgroundColor: Colors.white,
+    marginBottom: 16,
+  },
+  modalChips: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 24,
+  },
+  modalChip: {
     flex: 1,
-    borderRadius: 8,
-  },
-  typeButtonContent: {
-    height: 44,
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
+    gap: 12,
+    marginBottom: 16,
   },
-  rightButtons: {
-    flexDirection: 'row',
-    gap: 8,
+  modalButton: {
+    flex: 1,
+    borderRadius: 12,
+  },
+  modalSubmitButton: {
+    backgroundColor: Colors.primary,
   },
   deleteButton: {
-    borderColor: Colors.error,
+    borderRadius: 12,
   },
-  cancelButton: {
-    borderColor: Colors.primary,
-  },
-  submitButton: {
-    backgroundColor: Colors.primary,
-    minWidth: 100,
-  },
-  coordinateInput: {
-    flex: 1,
-    backgroundColor: Colors.white,
+  cardPressable: {
+    marginHorizontal: 1,
+    marginVertical: 1,
   },
 });
