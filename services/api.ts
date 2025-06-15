@@ -1,45 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import { Location, LocationType, User } from '../types';
+import { Location, LocationType } from '../types';
 
-// Development environment için mock data
-const MOCK_DATA = {
-  locations: [
-    {
-      id: '1',
-      title: 'Örnek Sulak Alan',
-      description: 'Test sulak alan açıklaması',
-      type: 'WETLAND' as LocationType,
-      latitude: 35.1856,
-      longitude: 33.3823,
-      city: 'Lefkoşa',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: 'test-user',
-    },
-    {
-      id: '2',
-      title: 'Örnek Depo',
-      description: 'Test depo açıklaması',
-      type: 'STORAGE' as LocationType,
-      latitude: 35.3364,
-      longitude: 33.3350,
-      city: 'Girne',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: 'test-user',
-    },
-  ],
-  users: [
-    {
-      id: '1',
-      name: 'Test Kullanıcı',
-      username: 'testuser',
-    },
-  ],
-};
-
-const isDevelopment = true; // Geliştirme ortamında olduğumuzu belirtiyoruz
+const isDevelopment = process.env.NODE_ENV === 'development';
 const API_URL = isDevelopment ? 'http://localhost:3000' : 'YOUR_PRODUCTION_API_URL';
 
 const api = axios.create({
@@ -63,34 +26,6 @@ api.interceptors.request.use(
   }
 );
 
-// Mock data for development
-const mockUser: User = {
-  id: '1',
-  name: 'Test User',
-  username: 'testuser',
-};
-
-const mockLocations: Location[] = [
-  {
-    id: '1',
-    title: 'Sulak Alan 1',
-    description: 'Test sulak alan açıklaması',
-    latitude: 35.1856,
-    longitude: 33.3823,
-    type: 'WETLAND',
-    city: 'Lefkoşa',
-  },
-  {
-    id: '2',
-    title: 'Depo 1',
-    description: 'Test depo açıklaması',
-    latitude: 35.3364,
-    longitude: 33.3350,
-    type: 'STORAGE',
-    city: 'Girne',
-  },
-];
-
 const LOCATIONS_STORAGE_KEY = '@locations';
 const AUTH_TOKEN_KEY = '@auth_token';
 
@@ -104,6 +39,9 @@ const initialLocations: Location[] = [
     longitude: 33.3823,
     type: 'WETLAND',
     city: 'Lefkoşa',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: 'test-user',
   },
   {
     id: '2',
@@ -113,6 +51,9 @@ const initialLocations: Location[] = [
     longitude: 33.3350,
     type: 'STORAGE',
     city: 'Girne',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: 'test-user',
   },
 ];
 
@@ -129,17 +70,14 @@ class LocationService {
       const storedLocations = await AsyncStorage.getItem(LOCATIONS_STORAGE_KEY);
       if (storedLocations) {
         this.locations = JSON.parse(storedLocations);
-        // Find the highest ID and increment it
         const maxId = Math.max(...this.locations.map(loc => parseInt(loc.id, 10)));
         this.lastId = isFinite(maxId) ? maxId.toString() : '0';
       } else {
-        // Initialize with mock data if no stored data
         this.locations = initialLocations;
-        this.lastId = '2'; // Since mock data has 2 items
+        this.lastId = '2';
       }
     } catch (error) {
       console.error('Error loading locations from storage:', error);
-      // Fallback to mock data if loading fails
       this.locations = initialLocations;
       this.lastId = '2';
     }
@@ -170,6 +108,8 @@ class LocationService {
     const newLocation: Location = {
       ...data,
       id: newId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     this.locations.push(newLocation);
     this.lastId = newId;
@@ -186,6 +126,7 @@ class LocationService {
     this.locations[index] = {
       ...this.locations[index],
       ...data,
+      updatedAt: new Date().toISOString(),
     };
 
     await this.saveToStorage();
@@ -230,7 +171,6 @@ class AuthService {
   }
 
   async login(username: string, password: string): Promise<string> {
-    // Test hesabı kontrolü
     if (username === 'testuser' && password === 'test123') {
       const token = 'test-token-' + Date.now();
       await this.saveToken(token);

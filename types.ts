@@ -17,6 +17,9 @@ export type Location = {
   longitude: number;
   type: LocationType;
   city: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
 };
 
 export type AuthResponse = {
