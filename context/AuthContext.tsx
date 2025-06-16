@@ -22,19 +22,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkAuthStatus = async () => {
     try {
       const token = await authService.getToken();
+      console.log('[Auth] Checking auth status, token:', token ? 'exists' : 'not found');
       if (token) {
-        // Mock user data for development
-        setUser({
-          id: '1',
-          name: 'Test User',
-          username: 'testuser'
-        });
+        const userData = await authService.getMe();
+        console.log('[Auth] User data retrieved:', userData);
+        setUser(userData);
       } else {
         setUser(null);
       }
     } catch (error) {
-      console.error('Error checking auth status:', error);
+      console.error('[Auth] Error checking auth status:', error);
       setUser(null);
+      // Token geçersizse veya hata varsa token'ı temizle
+      await authService.logout();
     } finally {
       setIsLoading(false);
     }
@@ -42,14 +42,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (username: string, password: string) => {
     try {
-      await authService.login(username, password);
-      // Mock user data for development
-      setUser({
-        id: '1',
-        name: 'Test User',
-        username: username
-      });
+      const response = await authService.login(username, password);
+      console.log('[Auth] Login successful, token:', response.token ? 'received' : 'not received');
+      setUser(response.user);
     } catch (error) {
+      console.error('[Auth] Login error:', error);
       throw error;
     }
   };

@@ -6,6 +6,7 @@ import { Avatar, Button, Divider, Modal, Portal, Surface, Text, TextInput } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
+import { userService } from '../../services/api';
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -14,7 +15,9 @@ export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isAddUserModalVisible, setIsAddUserModalVisible] = useState(false);
-  const [newUser, setNewUser] = useState({ name: '', username: '', password: '' });
+  const [newUser, setNewUser] = useState({ name: '', username: '', password: '', role: 'AUTHORIZED_PERSON' });
+
+  console.log('[Settings] Current user:', user);
 
   const handleLogout = async () => {
     await signOut();
@@ -25,10 +28,14 @@ export default function SettingsScreen() {
     await Linking.openURL('mailto:cyprus@metehansaral.com');
   };
 
-  const handleAddUser = () => {
-    // TODO: Implement user creation logic
-    setNewUser({ name: '', username: '', password: '' });
-    setIsAddUserModalVisible(false);
+  const handleAddUser = async () => {
+    try {
+      await userService.createUser(newUser);
+      setNewUser({ name: '', username: '', password: '', role: 'AUTHORIZED_PERSON' });
+      setIsAddUserModalVisible(false);
+    } catch (error) {
+      console.error('Error creating user:', error);
+    }
   };
 
   const renderSettingItem = (icon: IconName, title: string, subtitle?: string, onPress?: () => void) => (
@@ -82,7 +89,7 @@ export default function SettingsScreen() {
         </View>
       </Surface>
 
-      {user?.id !== '1' && (
+      {(user?.id === '1' || user?.id === '2' || user?.id === '3') && (
         <>
           <View style={styles.section}>
             <Text variant="titleMedium" style={styles.sectionTitle}>Yönetim</Text>

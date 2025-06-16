@@ -1,30 +1,26 @@
-export interface User {
+export type UserRole = 'FEDERATION_OFFICER' | 'STATE_OFFICER' | 'AUTHORIZED_PERSON';
+
+export type User = {
   id: string;
   name: string;
   username: string;
-}
+  role: UserRole;
+  isAdmin: boolean;
+};
 
-export interface LoginCredentials {
-  username: string;
-  password: string;
-}
+export type AuthResponse = {
+  token: string;
+  user: User;
+};
 
-export type LocationType = 'WETLAND' | 'STORAGE';
+export type LocationType = 'WETLAND' | 'DEPOT' | 'OTHER';
 
-export interface Location {
+export type Location = {
   id: string;
   title: string;
   description: string;
-  type: LocationType;
   latitude: number;
   longitude: number;
+  type: LocationType;
   city: string;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-}
-
-export interface AuthResponse {
-  user: User;
-  token: string;
-}
+};

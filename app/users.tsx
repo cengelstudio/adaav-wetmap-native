@@ -4,7 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Dialog, FAB, Portal, Surface, Text, TextInput } from 'react-native-paper';
 import { Colors } from '../constants/Colors';
-import { User } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { userService } from '../services/api';
+import { User, UserRole } from '../types';
 
 export default function UsersScreen() {
   const [users, setUsers] = useState<User[]>([]);
@@ -12,8 +14,9 @@ export default function UsersScreen() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isDeleteDialogVisible, setIsDeleteDialogVisible] = useState(false);
-  const [editedUser, setEditedUser] = useState({ name: '', username: '', password: '' });
+  const [editedUser, setEditedUser] = useState({ name: '', username: '', password: '', role: 'AUTHORIZED_PERSON' as UserRole });
   const router = useRouter();
+  const { user: currentUser } = useAuth();
 
   useEffect(() => {
     fetchUsers();
@@ -22,14 +25,12 @@ export default function UsersScreen() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      // TODO: Implement API call to fetch users
-      const mockUsers: User[] = [
-        { id: '1', name: 'Test User 1', username: 'testuser1' },
-        { id: '2', name: 'Test User 2', username: 'testuser2' },
-      ];
-      setUsers(mockUsers);
+      console.log('[Users] Fetching users...');
+      const fetchedUsers = await userService.getUsers();
+      console.log('[Users] Fetched users:', fetchedUsers);
+      setUsers(fetchedUsers);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('[Users] Error fetching users:', error);
     } finally {
       setLoading(false);
     }
@@ -41,6 +42,7 @@ export default function UsersScreen() {
       name: user.name,
       username: user.username,
       password: '',
+      role: user.role,
     });
     setIsEditModalVisible(true);
   };
@@ -54,11 +56,9 @@ export default function UsersScreen() {
     if (!selectedUser) return;
 
     try {
-      // TODO: Implement API call to update user
+      const updatedUser = await userService.updateUser(selectedUser.id, editedUser);
       const updatedUsers = users.map(user =>
-        user.id === selectedUser.id
-          ? { ...user, name: editedUser.name, username: editedUser.username }
-          : user
+        user.id === selectedUser.id ? updatedUser : user
       );
       setUsers(updatedUsers);
       setIsEditModalVisible(false);
@@ -71,12 +71,23 @@ export default function UsersScreen() {
     if (!selectedUser) return;
 
     try {
-      // TODO: Implement API call to delete user
+      await userService.deleteUser(selectedUser.id);
       const filteredUsers = users.filter(user => user.id !== selectedUser.id);
       setUsers(filteredUsers);
       setIsDeleteDialogVisible(false);
     } catch (error) {
       console.error('Error deleting user:', error);
+    }
+  };
+
+  const getRoleText = (role: UserRole) => {
+    switch (role) {
+      case 'FEDERATION_OFFICER':
+        return 'Federasyon Görevlisi';
+      case 'STATE_OFFICER':
+        return 'Devlet Görevlisi';
+      default:
+        return 'Yetkili Kişi';
     }
   };
 
@@ -115,28 +126,45 @@ export default function UsersScreen() {
                   />
                 </View>
                 <View style={styles.userDetails}>
-                  <Text variant="titleMedium" style={styles.userName}>{user.name}</Text>
+                  <View style={styles.nameContainer}>
+                    <Text variant="titleMedium" style={styles.userName}>{user.name}</Text>
+                    {user.isAdmin && (
+                      <View style={styles.adminBadge}>
+                        <MaterialCommunityIcons name="shield-check" size={16} color={Colors.white} />
+                        <Text style={styles.adminText}>Admin</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text variant="bodyMedium" style={styles.userUsername}>@{user.username}</Text>
+                  <View style={styles.roleChip}>
+                    <Text variant="bodySmall" style={styles.roleText}>
+                      {getRoleText(user.role)}
+                    </Text>
+                  </View>
                 </View>
               </View>
-              <View style={styles.actions}>
-                <Button
-                  mode="outlined"
-                  onPress={() => handleEditUser(user)}
-                  icon="pencil"
-                  style={styles.editButton}
-                >
-                  Düzenle
-                </Button>
-                <Button
-                  mode="text"
-                  onPress={() => handleDeleteUser(user)}
-                  icon="delete"
-                  textColor={Colors.error}
-                >
-                  Sil
-                </Button>
-              </View>
+              {(currentUser?.id === '1' || currentUser?.id === '2' || currentUser?.id === '3') && (
+                <View style={styles.actions}>
+                  <Button
+                    mode="outlined"
+                    onPress={() => handleEditUser(user)}
+                    icon="pencil"
+                    style={styles.editButton}
+                  >
+                    Düzenle
+                  </Button>
+                  {user.id !== currentUser.id && (
+                    <Button
+                      mode="text"
+                      onPress={() => handleDeleteUser(user)}
+                      icon="delete"
+                      textColor={Colors.error}
+                    >
+                      Sil
+                    </Button>
+                  )}
+                </View>
+              )}
             </View>
           </Surface>
         ))}
@@ -180,6 +208,13 @@ export default function UsersScreen() {
               mode="outlined"
               style={styles.input}
               secureTextEntry
+            />
+            <TextInput
+              label="Rol"
+              value={getRoleText(editedUser.role)}
+              mode="outlined"
+              style={styles.input}
+              disabled
             />
           </Dialog.Content>
           <Dialog.Actions>
@@ -238,6 +273,11 @@ const styles = StyleSheet.create({
   userDetails: {
     flex: 1,
   },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   userName: {
     fontWeight: '600',
     color: Colors.text,
@@ -245,6 +285,32 @@ const styles = StyleSheet.create({
   userUsername: {
     color: Colors.textLight,
     marginTop: 2,
+  },
+  adminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  adminText: {
+    color: Colors.white,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  roleChip: {
+    backgroundColor: Colors.background,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  roleText: {
+    color: Colors.textLight,
+    fontSize: 12,
   },
   actions: {
     flexDirection: 'row',

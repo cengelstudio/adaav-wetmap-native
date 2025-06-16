@@ -1,23 +1,29 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import { Location, LocationType } from '../types';
+import axios, { AxiosHeaders } from 'axios';
+import { API_BASE_URL } from '../constants/config';
+import { AuthResponse, Location, LocationType, User } from '../types';
 
-const isDevelopment = process.env.NODE_ENV === 'development';
-const API_URL = isDevelopment ? 'http://localhost:3000' : 'YOUR_PRODUCTION_API_URL';
-
+// Create axios instance with base URL
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor for adding auth token
+// Add request interceptor to include token in headers
 api.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        if (!config.headers) {
+          config.headers = new AxiosHeaders();
+        }
+        config.headers.set('Authorization', `Bearer ${token}`);
+      }
+    } catch (error) {
+      console.error('[API] Error adding token to request:', error);
     }
     return config;
   },
@@ -26,163 +32,93 @@ api.interceptors.request.use(
   }
 );
 
-const LOCATIONS_STORAGE_KEY = '@locations';
-const AUTH_TOKEN_KEY = '@auth_token';
+// Add response interceptor to handle token expiration
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid, clear it
+      await AsyncStorage.removeItem('token');
+    }
+    return Promise.reject(error);
+  }
+);
 
-// Initial mock data for development
-const initialLocations: Location[] = [
-  {
-    id: '1',
-    title: 'Sulak Alan 1',
-    description: 'Test sulak alan açıklaması',
-    latitude: 35.1856,
-    longitude: 33.3823,
-    type: 'WETLAND',
-    city: 'Lefkoşa',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    createdBy: 'test-user',
+// Auth service
+export const authService = {
+  getToken: async () => {
+    return await AsyncStorage.getItem('token');
   },
-  {
-    id: '2',
-    title: 'Depo 1',
-    description: 'Test depo açıklaması',
-    latitude: 35.3364,
-    longitude: 33.3350,
-    type: 'STORAGE',
-    city: 'Girne',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    createdBy: 'test-user',
+
+  login: async (username: string, password: string): Promise<AuthResponse> => {
+    const response = await api.post('/auth/login', {
+      username,
+      password,
+    });
+    const { token, user } = response.data;
+    await AsyncStorage.setItem('token', token);
+    return { token, user };
   },
-];
 
-class LocationService {
-  private locations: Location[] = [];
-  private lastId: string = '0';
+  logout: async () => {
+    await AsyncStorage.removeItem('token');
+  },
 
-  constructor() {
-    this.loadFromStorage();
-  }
+  getMe: async (): Promise<User> => {
+    const response = await api.get('/auth/me');
+    return response.data;
+  },
+};
 
-  private async loadFromStorage() {
-    try {
-      const storedLocations = await AsyncStorage.getItem(LOCATIONS_STORAGE_KEY);
-      if (storedLocations) {
-        this.locations = JSON.parse(storedLocations);
-        const maxId = Math.max(...this.locations.map(loc => parseInt(loc.id, 10)));
-        this.lastId = isFinite(maxId) ? maxId.toString() : '0';
-      } else {
-        this.locations = initialLocations;
-        this.lastId = '2';
-      }
-    } catch (error) {
-      console.error('Error loading locations from storage:', error);
-      this.locations = initialLocations;
-      this.lastId = '2';
-    }
-  }
+// Location service
+export const locationService = {
+  getLocations: async (type?: LocationType, city?: string): Promise<Location[]> => {
+    const params = new URLSearchParams();
+    if (type) params.append('type', type);
+    if (city) params.append('city', city);
+    const response = await api.get(`/locations/${params.toString() ? `?${params.toString()}` : ''}`);
+    return response.data;
+  },
 
-  private async saveToStorage() {
-    try {
-      await AsyncStorage.setItem(LOCATIONS_STORAGE_KEY, JSON.stringify(this.locations));
-    } catch (error) {
-      console.error('Error saving locations to storage:', error);
-    }
-  }
+  createLocation: async (location: Omit<Location, 'id'>): Promise<Location> => {
+    const response = await api.post('/locations/', location);
+    return response.data;
+  },
 
-  async getLocations(): Promise<Location[]> {
-    return this.locations;
-  }
+  updateLocation: async (id: string, location: Partial<Location>): Promise<Location> => {
+    const response = await api.put(`/locations/${id}`, location);
+    return response.data;
+  },
 
-  async getLocationsByType(type: LocationType): Promise<Location[]> {
-    return this.locations.filter(location => location.type === type);
-  }
+  deleteLocation: async (id: string): Promise<void> => {
+    await api.delete(`/locations/${id}`);
+  },
+};
 
-  async getLocationsByCity(city: string): Promise<Location[]> {
-    return this.locations.filter(location => location.city.toLowerCase() === city.toLowerCase());
-  }
+// User service
+export const userService = {
+  getUsers: async (): Promise<User[]> => {
+    const response = await api.get('/users/');
+    return response.data.users;
+  },
 
-  async createLocation(data: Omit<Location, 'id'>): Promise<Location> {
-    const newId = (parseInt(this.lastId) + 1).toString();
-    const newLocation: Location = {
-      ...data,
-      id: newId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.locations.push(newLocation);
-    this.lastId = newId;
-    await this.saveToStorage();
-    return newLocation;
-  }
+  createUser: async (userData: { name: string; username: string; password: string; role: string }): Promise<User> => {
+    const response = await api.post('/users/', userData);
+    return response.data.user;
+  },
 
-  async updateLocation(id: string, data: Partial<Omit<Location, 'id'>>): Promise<Location> {
-    const index = this.locations.findIndex(loc => loc.id === id);
-    if (index === -1) {
-      throw new Error('Location not found');
-    }
+  updateUser: async (userId: string, userData: Partial<{ name: string; username: string; password: string; role: string }>): Promise<User> => {
+    const response = await api.put(`/users/${userId}`, userData);
+    return response.data.user;
+  },
 
-    this.locations[index] = {
-      ...this.locations[index],
-      ...data,
-      updatedAt: new Date().toISOString(),
-    };
+  deleteUser: async (userId: string): Promise<{ success: boolean; message: string }> => {
+    const response = await api.delete(`/users/${userId}`);
+    return response.data;
+  },
 
-    await this.saveToStorage();
-    return this.locations[index];
-  }
-
-  async deleteLocation(id: string): Promise<void> {
-    const index = this.locations.findIndex(loc => loc.id === id);
-    if (index === -1) {
-      throw new Error('Location not found');
-    }
-
-    this.locations.splice(index, 1);
-    await this.saveToStorage();
-  }
-}
-
-class AuthService {
-  private async saveToken(token: string) {
-    try {
-      await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
-    } catch (error) {
-      console.error('Error saving auth token:', error);
-    }
-  }
-
-  async getToken(): Promise<string | null> {
-    try {
-      return await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-    } catch (error) {
-      console.error('Error getting auth token:', error);
-      return null;
-    }
-  }
-
-  async removeToken() {
-    try {
-      await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
-    } catch (error) {
-      console.error('Error removing auth token:', error);
-    }
-  }
-
-  async login(username: string, password: string): Promise<string> {
-    if (username === 'testuser' && password === 'test123') {
-      const token = 'test-token-' + Date.now();
-      await this.saveToken(token);
-      return token;
-    }
-    throw new Error('Invalid credentials');
-  }
-
-  async logout(): Promise<void> {
-    await this.removeToken();
-  }
-}
-
-export const locationService = new LocationService();
-export const authService = new AuthService();
+  getUser: async (userId: string): Promise<User> => {
+    const response = await api.get(`/users/${userId}`);
+    return response.data.user;
+  },
+};

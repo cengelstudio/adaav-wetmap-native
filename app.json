@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "KKTC Avcılık Federasyonu",
+    "name": "AdaAv: Sulak Haritası",
     "slug": "cyprus-h2",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/sulakalan.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/sulakalan.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -22,14 +22,14 @@
         "NSLocationAlwaysUsageDescription": "Konumunuz haritada gösterilecek ve yeni nokta eklerken kullanılacaktır."
       },
       "splash": {
-        "image": "./assets/splash.png",
+        "image": "./assets/sulakalan.png",
         "resizeMode": "contain",
         "backgroundColor": "#ffffff"
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/sulakalan.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.kktc.avcilik",
@@ -38,20 +38,20 @@
         "ACCESS_FINE_LOCATION"
       ],
       "splash": {
-        "image": "./assets/splash.png",
+        "image": "./assets/sulakalan.png",
         "resizeMode": "contain",
         "backgroundColor": "#ffffff"
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/sulakalan.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash.png",
+          "image": "./assets/sulakalan.png",
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }

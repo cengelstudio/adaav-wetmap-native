@@ -1,8 +1,9 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
-import { Button, Modal, Portal, Text, TextInput } from 'react-native-paper';
+import { KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import MapView, { Callout, Marker, Region } from 'react-native-maps';
+import { Button, Modal, Portal, Surface, Text, TextInput } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/Colors';
 import { locationService } from '../../services/api';
@@ -77,12 +78,12 @@ export default function MapScreen() {
     try {
       setLoading(true);
       await locationService.createLocation({
-        title,
-        description,
+        title: title,
+        description: description || '',
         type: selectedType,
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
-        city: 'KKTC',
+        city: 'KKTC'
       });
       await fetchLocations();
       setIsAddModalVisible(false);
@@ -98,6 +99,34 @@ export default function MapScreen() {
     setTitle('');
     setDescription('');
     setSelectedType(null);
+  };
+
+  const handleGetDirections = (latitude: number, longitude: number) => {
+    const scheme = Platform.select({
+      ios: 'maps:',
+      android: 'google.navigation:',
+    });
+    const url = Platform.select({
+      ios: `${scheme}?daddr=${latitude},${longitude}`,
+      android: `${scheme}q=${latitude},${longitude}`,
+    });
+
+    if (url) {
+      Linking.canOpenURL(url).then((supported) => {
+        if (supported) {
+          Linking.openURL(url);
+        } else {
+          // Fallback to Google Maps web URL if native apps are not available
+          const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+          Linking.openURL(webUrl);
+        }
+      }).catch((err) => {
+        console.error('Error opening maps:', err);
+        // Fallback to Google Maps web URL
+        const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+        Linking.openURL(webUrl);
+      });
+    }
   };
 
   return (
@@ -120,7 +149,40 @@ export default function MapScreen() {
             title={location.title}
             description={location.description}
             pinColor={location.type === 'WETLAND' ? Colors.secondary : Colors.primary}
-          />
+          >
+            <Callout tooltip>
+              <Surface style={styles.calloutContainer}>
+                <View style={styles.calloutHeader}>
+                  <MaterialCommunityIcons
+                    name={location.type === 'WETLAND' ? 'water' : 'warehouse'}
+                    size={24}
+                    color={location.type === 'WETLAND' ? Colors.secondary : Colors.primary}
+                  />
+                  <Text style={styles.calloutTitle}>{location.title}</Text>
+                </View>
+                {location.description && (
+                  <Text style={styles.calloutDescription}>{location.description}</Text>
+                )}
+                <View style={styles.calloutCoordinates}>
+                  <View style={styles.coordinateItem}>
+                    <MaterialCommunityIcons name="latitude" size={16} color={Colors.textLight} />
+                    <Text style={styles.coordinateText}>{location.latitude.toFixed(4)}</Text>
+                  </View>
+                  <View style={styles.coordinateItem}>
+                    <MaterialCommunityIcons name="longitude" size={16} color={Colors.textLight} />
+                    <Text style={styles.coordinateText}>{location.longitude.toFixed(4)}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.directionsButton}
+                  onPress={() => handleGetDirections(location.latitude, location.longitude)}
+                >
+                  <MaterialCommunityIcons name="directions" size={20} color={Colors.white} />
+                  <Text style={styles.directionsButtonText}>Yol Tarifi Al</Text>
+                </TouchableOpacity>
+              </Surface>
+            </Callout>
+          </Marker>
         ))}
       </MapView>
 
@@ -350,5 +412,67 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     backgroundColor: Colors.primary,
+  },
+  calloutContainer: {
+    padding: 12,
+    minWidth: 200,
+    borderRadius: 12,
+    backgroundColor: Colors.white,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  calloutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  calloutTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    flex: 1,
+  },
+  calloutDescription: {
+    fontSize: 14,
+    color: Colors.textLight,
+    marginBottom: 8,
+  },
+  calloutCoordinates: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  coordinateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  coordinateText: {
+    fontSize: 12,
+    color: Colors.textLight,
+  },
+  directionsButton: {
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    borderRadius: 8,
+    gap: 8,
+  },
+  directionsButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
