@@ -7,6 +7,7 @@ type AuthContextType = {
   signIn: (username: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   isLoading: boolean;
+  isAuthenticated: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -14,6 +15,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     checkAuthStatus();
@@ -23,17 +25,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const token = await authService.getToken();
       console.log('[Auth] Checking auth status, token:', token ? 'exists' : 'not found');
-      if (token) {
+
+      if (!token) {
+        setUser(null);
+        setIsAuthenticated(false);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
         const userData = await authService.getMe();
         console.log('[Auth] User data retrieved:', userData);
-        setUser(userData);
-      } else {
-        setUser(null);
+
+        if (userData) {
+          setUser(userData);
+          setIsAuthenticated(true);
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
+          await authService.logout();
+        }
+      } catch (authError: any) {
+        console.error('[Auth] Token validation failed:', authError);
+
+        // 401 hatası durumunda token'ı temizle
+        if (authError?.response?.status === 401) {
+          console.log('[Auth] Token expired, clearing...');
+          await authService.logout();
+          setUser(null);
+          setIsAuthenticated(false);
+        } else {
+          // Diğer hatalar için token'ı koru (network hatası olabilir)
+          console.log('[Auth] Network error, keeping token for offline use');
+          // Ancak user'ı null yap ki login ekranına yönlendirilsin
+          setUser(null);
+          setIsAuthenticated(false);
+        }
       }
     } catch (error) {
       console.error('[Auth] Error checking auth status:', error);
       setUser(null);
-      // Token geçersizse veya hata varsa token'ı temizle
+      setIsAuthenticated(false);
       await authService.logout();
     } finally {
       setIsLoading(false);
@@ -42,12 +74,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (username: string, password: string) => {
     try {
+      setIsLoading(true);
       const response = await authService.login(username, password);
       console.log('[Auth] Login successful, token:', response.token ? 'received' : 'not received');
       setUser(response.user);
+      setIsAuthenticated(true);
     } catch (error) {
       console.error('[Auth] Login error:', error);
+      setUser(null);
+      setIsAuthenticated(false);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -55,8 +93,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await authService.logout();
       setUser(null);
+      setIsAuthenticated(false);
     } catch (error) {
       console.error('Error signing out:', error);
+      // Hata olsa bile local state'i temizle
+      setUser(null);
+      setIsAuthenticated(false);
     }
   };
 
@@ -67,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signIn,
         signOut,
         isLoading,
+        isAuthenticated,
       }}
     >
       {children}

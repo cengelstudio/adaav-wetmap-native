@@ -16,10 +16,11 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kktc.avcilik",
+      "bundleIdentifier": "com.cyprush2.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Konumunuz haritada gösterilecek ve yeni nokta eklerken kullanılacaktır.",
-        "NSLocationAlwaysUsageDescription": "Konumunuz haritada gösterilecek ve yeni nokta eklerken kullanılacaktır."
+        "NSLocationAlwaysUsageDescription": "Konumunuz haritada gösterilecek ve yeni nokta eklerken kullanılacaktır.",
+        "UIBackgroundModes": ["process", "remote-notification"]
       },
       "splash": {
         "image": "./assets/sulakalan.png",

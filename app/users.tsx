@@ -1,12 +1,13 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { ScrollView, StyleSheet, View, Alert } from 'react-native';
 import { ActivityIndicator, Button, Dialog, FAB, Portal, Surface, Text, TextInput } from 'react-native-paper';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../context/AuthContext';
 import { userService } from '../services/api';
 import { User, UserRole } from '../types';
+import NetInfo from '@react-native-community/netinfo';
 
 export default function UsersScreen() {
   const [users, setUsers] = useState<User[]>([]);
@@ -18,9 +19,27 @@ export default function UsersScreen() {
   const router = useRouter();
   const { user: currentUser } = useAuth();
 
-  useEffect(() => {
+  const checkNetworkAndFetchUsers = useCallback(async () => {
+    const netInfo = await NetInfo.fetch();
+    if (!netInfo.isConnected) {
+      Alert.alert(
+        'İnternet Bağlantısı Yok',
+        'Kullanıcıları görüntülemek için internet bağlantısı gereklidir.',
+        [
+          {
+            text: 'Geri Dön',
+            onPress: () => router.back(),
+          },
+        ]
+      );
+      return;
+    }
     fetchUsers();
-  }, []);
+  }, [router]);
+
+  useEffect(() => {
+    checkNetworkAndFetchUsers();
+  }, [checkNetworkAndFetchUsers]);
 
   const fetchUsers = async () => {
     try {
@@ -31,6 +50,7 @@ export default function UsersScreen() {
       setUsers(fetchedUsers);
     } catch (error) {
       console.error('[Users] Error fetching users:', error);
+      Alert.alert('Hata', 'Kullanıcılar yüklenirken bir hata oluştu.');
     } finally {
       setLoading(false);
     }
@@ -55,6 +75,17 @@ export default function UsersScreen() {
   const handleUpdateUser = async () => {
     if (!selectedUser) return;
 
+    // Check internet connection
+    const netInfo = await NetInfo.fetch();
+    if (!netInfo.isConnected) {
+      Alert.alert(
+        'İnternet Bağlantısı Yok',
+        'Kullanıcı güncellemek için internet bağlantısı gereklidir.',
+        [{ text: 'Tamam', style: 'default' }]
+      );
+      return;
+    }
+
     try {
       const updatedUser = await userService.updateUser(selectedUser.id, editedUser);
       const updatedUsers = users.map(user =>
@@ -62,21 +93,36 @@ export default function UsersScreen() {
       );
       setUsers(updatedUsers);
       setIsEditModalVisible(false);
+      Alert.alert('Başarılı', 'Kullanıcı başarıyla güncellendi.');
     } catch (error) {
       console.error('Error updating user:', error);
+      Alert.alert('Hata', 'Kullanıcı güncellenirken bir hata oluştu.');
     }
   };
 
   const handleConfirmDelete = async () => {
     if (!selectedUser) return;
 
+    // Check internet connection
+    const netInfo = await NetInfo.fetch();
+    if (!netInfo.isConnected) {
+      Alert.alert(
+        'İnternet Bağlantısı Yok',
+        'Kullanıcı silmek için internet bağlantısı gereklidir.',
+        [{ text: 'Tamam', style: 'default' }]
+      );
+      return;
+    }
+
     try {
       await userService.deleteUser(selectedUser.id);
       const filteredUsers = users.filter(user => user.id !== selectedUser.id);
       setUsers(filteredUsers);
       setIsDeleteDialogVisible(false);
+      Alert.alert('Başarılı', 'Kullanıcı başarıyla silindi.');
     } catch (error) {
       console.error('Error deleting user:', error);
+      Alert.alert('Hata', 'Kullanıcı silinirken bir hata oluştu.');
     }
   };
 

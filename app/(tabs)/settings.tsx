@@ -1,23 +1,27 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, View, Alert } from 'react-native';
 import { Avatar, Button, Divider, Modal, Portal, Surface, Text, TextInput } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
+import { useNetwork } from '../../context/NetworkContext';
 import { userService } from '../../services/api';
+import NetInfo from '@react-native-community/netinfo';
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
 export default function SettingsScreen() {
   const { user, signOut } = useAuth();
+  const { isConnected } = useNetwork();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isAddUserModalVisible, setIsAddUserModalVisible] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', username: '', password: '', role: 'AUTHORIZED_PERSON' });
 
   console.log('[Settings] Current user:', user);
+  console.log('[Settings] Network status:', { isConnected });
 
   const handleLogout = async () => {
     await signOut();
@@ -29,33 +33,75 @@ export default function SettingsScreen() {
   };
 
   const handleAddUser = async () => {
+    // Check internet connection
+    const netInfo = await NetInfo.fetch();
+    if (!netInfo.isConnected) {
+      Alert.alert(
+        'İnternet Bağlantısı Yok',
+        'Kullanıcı eklemek için internet bağlantısı gereklidir.',
+        [{ text: 'Tamam', style: 'default' }]
+      );
+      return;
+    }
+
     try {
       await userService.createUser(newUser);
       setNewUser({ name: '', username: '', password: '', role: 'AUTHORIZED_PERSON' });
       setIsAddUserModalVisible(false);
+      Alert.alert('Başarılı', 'Kullanıcı başarıyla eklendi.');
     } catch (error) {
       console.error('Error creating user:', error);
+      Alert.alert('Hata', 'Kullanıcı eklenirken bir hata oluştu.');
     }
   };
 
-  const renderSettingItem = (icon: IconName, title: string, subtitle?: string, onPress?: () => void) => (
+  const handleNavigateToUsers = async () => {
+    // Check internet connection
+    const netInfo = await NetInfo.fetch();
+    if (!netInfo.isConnected) {
+      Alert.alert(
+        'İnternet Bağlantısı Yok',
+        'Kullanıcıları görüntülemek için internet bağlantısı gereklidir.',
+        [{ text: 'Tamam', style: 'default' }]
+      );
+      return;
+    }
+
+    router.push('/users');
+  };
+
+  const renderSettingItem = (icon: IconName, title: string, subtitle?: string, onPress?: () => void, disabled?: boolean) => (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       style={({ pressed }) => [
         styles.settingItem,
-        pressed && { backgroundColor: Colors.background }
+        pressed && !disabled && { backgroundColor: Colors.background },
+        disabled && styles.disabledItem
       ]}
     >
-      <View style={styles.settingIconContainer}>
-        <MaterialCommunityIcons name={icon} size={22} color={Colors.primary} />
+      <View style={[styles.settingIconContainer, disabled && styles.disabledIcon]}>
+        <MaterialCommunityIcons
+          name={icon}
+          size={22}
+          color={disabled ? Colors.textLight : Colors.primary}
+        />
       </View>
       <View style={styles.settingText}>
-        <Text variant="bodyLarge" style={styles.settingTitle}>{title}</Text>
-        {subtitle && <Text variant="bodySmall" style={styles.settingSubtitle}>{subtitle}</Text>}
+        <Text variant="bodyLarge" style={[styles.settingTitle, disabled && styles.disabledText]}>{title}</Text>
+        {subtitle && <Text variant="bodySmall" style={[styles.settingSubtitle, disabled && styles.disabledText]}>{subtitle}</Text>}
       </View>
-      <MaterialCommunityIcons name="chevron-right" size={22} color={Colors.textLight} />
+      <MaterialCommunityIcons
+        name="chevron-right"
+        size={22}
+        color={disabled ? Colors.textLight : Colors.textLight}
+      />
     </Pressable>
   );
+
+  // Check if user is admin and has internet connection
+  const isAdmin = user?.id === '1' || user?.id === '2' || user?.id === '3';
+  const canAccessAdmin = isAdmin && isConnected;
 
   return (
     <ScrollView
@@ -85,19 +131,42 @@ export default function SettingsScreen() {
                   : 'Yetkili Kişi'}
               </Text>
             </View>
+            {!isConnected && (
+              <View style={styles.offlineIndicator}>
+                <MaterialCommunityIcons name="wifi-off" size={14} color={Colors.warning} />
+                <Text variant="bodySmall" style={styles.offlineText}>Çevrimdışı mod</Text>
+              </View>
+            )}
           </View>
         </View>
       </Surface>
 
-      {(user?.id === '1' || user?.id === '2' || user?.id === '3') && (
+      {isAdmin && (
         <>
           <View style={styles.section}>
             <Text variant="titleMedium" style={styles.sectionTitle}>Yönetim</Text>
             <Surface style={styles.sectionCard}>
-              {renderSettingItem('account-plus', 'Yeni Kullanıcı', 'Yeni kullanıcı ekle', () => setIsAddUserModalVisible(true))}
+              {renderSettingItem(
+                'account-plus',
+                'Yeni Kullanıcı',
+                canAccessAdmin ? 'Yeni kullanıcı ekle' : 'İnternet bağlantısı gerekli',
+                () => setIsAddUserModalVisible(true),
+                !canAccessAdmin
+              )}
               <Divider style={styles.itemDivider} />
-              {renderSettingItem('account-group', 'Kullanıcılar', 'Kullanıcıları yönet', () => router.push('/users'))}
+              {renderSettingItem(
+                'account-group',
+                'Kullanıcılar',
+                canAccessAdmin ? 'Kullanıcıları yönet' : 'İnternet bağlantısı gerekli',
+                handleNavigateToUsers,
+                !canAccessAdmin
+              )}
             </Surface>
+            {!isConnected && isAdmin && (
+              <Text style={styles.offlineNote}>
+                Yönetim işlemleri için internet bağlantısı gereklidir.
+              </Text>
+            )}
           </View>
         </>
       )}
@@ -328,5 +397,35 @@ const styles = StyleSheet.create({
   },
   modalSubmitButton: {
     backgroundColor: Colors.primary,
+  },
+  offlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: Platform.select({
+      ios: 'rgba(255,255,255,0.8)',
+      android: Colors.background,
+    }),
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  offlineText: {
+    color: Colors.warning,
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+  offlineNote: {
+    color: Colors.textLight,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  disabledItem: {
+    opacity: 0.5,
+  },
+  disabledIcon: {
+    backgroundColor: Colors.background,
+  },
+  disabledText: {
+    color: Colors.textLight,
   },
 });

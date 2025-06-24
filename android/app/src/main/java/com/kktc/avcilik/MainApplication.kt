@@ -1,4 +1,4 @@
-package com.kktcavclkfederasyonu
+package com.kktc.avcilik
 
 import android.app.Application
 import android.content.res.Configuration

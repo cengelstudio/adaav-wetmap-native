@@ -3,11 +3,15 @@ import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import MapView, { Callout, Marker, Region } from 'react-native-maps';
-import { Button, Modal, Portal, Surface, Text, TextInput } from 'react-native-paper';
+import { Button, Modal, Portal, Surface, Text, TextInput, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/Colors';
 import { locationService } from '../../services/api';
 import { Location as LocationType, LocationType as LocType } from '../../types';
+import { NetworkStatusIndicator } from '../../components/NetworkStatusIndicator';
+import { useNetwork } from '../../context/NetworkContext';
+import { offlineService } from '../../services/offlineService';
+import NetInfo from '@react-native-community/netinfo';
 
 // KKTC'nin merkezi koordinatları
 const INITIAL_REGION: Region = {
@@ -19,7 +23,9 @@ const INITIAL_REGION: Region = {
 
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
+  const { isConnected, syncOfflineData, isSyncing } = useNetwork();
   const [locations, setLocations] = useState<LocationType[]>([]);
+  const [offlineLocations, setOfflineLocations] = useState<LocationType[]>([]);
   const [currentLocation, setCurrentLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -31,11 +37,20 @@ export default function MapScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('');
 
   useEffect(() => {
     fetchLocations();
+    fetchOfflineLocations();
     getCurrentLocation();
   }, []);
+
+  useEffect(() => {
+    if (isConnected) {
+      fetchLocations();
+      fetchOfflineLocations();
+    }
+  }, [isConnected]);
 
   const fetchLocations = async () => {
     try {
@@ -43,6 +58,15 @@ export default function MapScreen() {
       setLocations(data);
     } catch (error) {
       console.error('Error fetching locations:', error);
+    }
+  };
+
+  const fetchOfflineLocations = async () => {
+    try {
+      const data = await offlineService.getLocalLocations();
+      setOfflineLocations(data);
+    } catch (error) {
+      console.error('Error fetching offline locations:', error);
     }
   };
 
@@ -75,21 +99,36 @@ export default function MapScreen() {
   const handleAddLocation = async () => {
     if (!currentLocation || !selectedType || !title) return;
 
+    const newLocation = {
+      title: title,
+      description: description || '',
+      type: selectedType,
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      city: 'KKTC'
+    };
+
     try {
       setLoading(true);
-      await locationService.createLocation({
-        title: title,
-        description: description || '',
-        type: selectedType,
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        city: 'KKTC'
-      });
-      await fetchLocations();
+
+      if (!isConnected) {
+        // Offline mode - save locally
+        const localLocation = { ...newLocation, id: `local_${Date.now()}` };
+        await offlineService.saveLocalLocation(localLocation);
+        await fetchOfflineLocations();
+        setSyncMessage('Konum çevrimdışı olarak kaydedildi. İnternet bağlantısı geldiğinde senkronize edilecek.');
+      } else {
+        // Online mode - save to server
+        await locationService.createLocation(newLocation);
+        await fetchLocations();
+        setSyncMessage('Konum başarıyla kaydedildi.');
+      }
+
       setIsAddModalVisible(false);
       resetForm();
     } catch (error) {
       console.error('Error adding location:', error);
+      setSyncMessage('Konum kaydedilirken bir hata oluştu.');
     } finally {
       setLoading(false);
     }
@@ -129,8 +168,32 @@ export default function MapScreen() {
     }
   };
 
+  const handleSyncOfflineData = async () => {
+    if (isSyncing) return; // Prevent multiple syncs
+
+    // Check internet connection
+    const netInfo = await NetInfo.fetch();
+    if (!netInfo.isConnected) {
+      setSyncMessage('İnternet bağlantısı yok. Senkronizasyon için internet bağlantısı gereklidir.');
+      return;
+    }
+
+    try {
+      await syncOfflineData();
+      await fetchLocations();
+      await fetchOfflineLocations();
+      setSyncMessage('Çevrimdışı veriler başarıyla senkronize edildi.');
+    } catch (error) {
+      console.error('Error syncing offline data:', error);
+      setSyncMessage('Senkronizasyon sırasında bir hata oluştu.');
+    }
+  };
+
+  const allLocations = [...locations, ...offlineLocations];
+
   return (
     <View style={styles.container}>
+      <NetworkStatusIndicator />
       <MapView
         style={styles.map}
         initialRegion={mapRegion}
@@ -139,52 +202,88 @@ export default function MapScreen() {
         showsMyLocationButton
         onRegionChangeComplete={setMapRegion}
       >
-        {locations.map((location) => (
-          <Marker
-            key={location.id}
-            coordinate={{
-              latitude: location.latitude,
-              longitude: location.longitude,
-            }}
-            title={location.title}
-            description={location.description}
-            pinColor={location.type === 'WETLAND' ? Colors.secondary : Colors.primary}
-          >
-            <Callout tooltip>
-              <Surface style={styles.calloutContainer}>
-                <View style={styles.calloutHeader}>
-                  <MaterialCommunityIcons
-                    name={location.type === 'WETLAND' ? 'water' : 'warehouse'}
-                    size={24}
-                    color={location.type === 'WETLAND' ? Colors.secondary : Colors.primary}
-                  />
-                  <Text style={styles.calloutTitle}>{location.title}</Text>
-                </View>
-                {location.description && (
-                  <Text style={styles.calloutDescription}>{location.description}</Text>
-                )}
-                <View style={styles.calloutCoordinates}>
-                  <View style={styles.coordinateItem}>
-                    <MaterialCommunityIcons name="latitude" size={16} color={Colors.textLight} />
-                    <Text style={styles.coordinateText}>{location.latitude.toFixed(4)}</Text>
+        {allLocations.map((location) => {
+          const isOffline = location.id.startsWith('local_');
+          return (
+            <Marker
+              key={location.id}
+              coordinate={{
+                latitude: location.latitude,
+                longitude: location.longitude,
+              }}
+              title={location.title}
+              description={location.description}
+              pinColor={isOffline ? Colors.warning : (location.type === 'WETLAND' ? Colors.secondary : Colors.primary)}
+            >
+              <Callout tooltip>
+                <Surface style={[styles.calloutContainer, isOffline && styles.offlineCallout]}>
+                  <View style={styles.calloutHeader}>
+                    <MaterialCommunityIcons
+                      name={location.type === 'WETLAND' ? 'water' : 'warehouse'}
+                      size={24}
+                      color={isOffline ? Colors.warning : (location.type === 'WETLAND' ? Colors.secondary : Colors.primary)}
+                    />
+                    <Text style={styles.calloutTitle}>{location.title}</Text>
+                    {isOffline && (
+                      <MaterialCommunityIcons
+                        name="wifi-off"
+                        size={16}
+                        color={Colors.warning}
+                        style={styles.offlineIcon}
+                      />
+                    )}
                   </View>
-                  <View style={styles.coordinateItem}>
-                    <MaterialCommunityIcons name="longitude" size={16} color={Colors.textLight} />
-                    <Text style={styles.coordinateText}>{location.longitude.toFixed(4)}</Text>
+                  {location.description && (
+                    <Text style={styles.calloutDescription}>{location.description}</Text>
+                  )}
+                  {isOffline && (
+                    <Text style={styles.offlineText}>Çevrimdışı kayıt</Text>
+                  )}
+                  <View style={styles.calloutCoordinates}>
+                    <View style={styles.coordinateItem}>
+                      <MaterialCommunityIcons name="latitude" size={16} color={Colors.textLight} />
+                      <Text style={styles.coordinateText}>{location.latitude.toFixed(4)}</Text>
+                    </View>
+                    <View style={styles.coordinateItem}>
+                      <MaterialCommunityIcons name="longitude" size={16} color={Colors.textLight} />
+                      <Text style={styles.coordinateText}>{location.longitude.toFixed(4)}</Text>
+                    </View>
                   </View>
-                </View>
-                <TouchableOpacity
-                  style={styles.directionsButton}
-                  onPress={() => handleGetDirections(location.latitude, location.longitude)}
-                >
-                  <MaterialCommunityIcons name="directions" size={20} color={Colors.white} />
-                  <Text style={styles.directionsButtonText}>Yol Tarifi Al</Text>
-                </TouchableOpacity>
-              </Surface>
-            </Callout>
-          </Marker>
-        ))}
+                  <TouchableOpacity
+                    style={styles.directionsButton}
+                    onPress={() => handleGetDirections(location.latitude, location.longitude)}
+                  >
+                    <MaterialCommunityIcons name="directions" size={20} color={Colors.white} />
+                    <Text style={styles.directionsButtonText}>Yol Tarifi Al</Text>
+                  </TouchableOpacity>
+                </Surface>
+              </Callout>
+            </Marker>
+          );
+        })}
       </MapView>
+
+      {/* Sync Button - only show when connected and there are offline locations */}
+      {isConnected && offlineLocations.length > 0 && (
+        <Button
+          mode="contained"
+          onPress={handleSyncOfflineData}
+          disabled={isSyncing}
+          loading={isSyncing}
+          style={[
+            styles.syncButton,
+            {
+              top: insets.top + 70,
+              right: 16,
+            },
+          ]}
+          icon={isSyncing ? undefined : "sync"}
+          textColor={Colors.white}
+          contentStyle={styles.syncButtonContent}
+        >
+          {isSyncing ? 'Senkronize Ediliyor...' : 'Senkronize Et'}
+        </Button>
+      )}
 
       <Button
         mode="contained"
@@ -226,7 +325,7 @@ export default function MapScreen() {
             <Button
               mode="contained"
               onPress={() => {
-                setSelectedType('STORAGE');
+                setSelectedType('DEPOT');
                 setIsDropdownVisible(false);
                 setIsAddModalVisible(true);
               }}
@@ -317,6 +416,15 @@ export default function MapScreen() {
           </KeyboardAvoidingView>
         </Modal>
       </Portal>
+
+      <Snackbar
+        visible={!!syncMessage}
+        onDismiss={() => setSyncMessage('')}
+        duration={3000}
+        style={styles.snackbar}
+      >
+        {syncMessage}
+      </Snackbar>
     </View>
   );
 }
@@ -474,5 +582,36 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 14,
     fontWeight: '600',
+  },
+  offlineCallout: {
+    backgroundColor: Colors.warning,
+  },
+  offlineIcon: {
+    marginLeft: 8,
+  },
+  offlineText: {
+    color: Colors.white,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  syncButton: {
+    position: 'absolute',
+    backgroundColor: Colors.primary,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    borderRadius: 12,
+    paddingHorizontal: 5,
+  },
+  syncButtonContent: {
+    height: 40,
+  },
+  snackbar: {
+    backgroundColor: Colors.primary,
   },
 });

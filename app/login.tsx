@@ -26,10 +26,9 @@ export default function LoginScreen() {
       setError('');
       await signIn(username, password);
       router.replace('/(tabs)/map');
-    } catch (err) {
-      setError('Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
-    } finally {
+    } catch {
       setLoading(false);
+      setError('Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
     }
   };
 

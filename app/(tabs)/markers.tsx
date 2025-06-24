@@ -6,6 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/Colors';
 import { locationService } from '../../services/api';
 import { Location, LocationType } from '../../types';
+import { useNetwork } from '../../context/NetworkContext';
+import { offlineService } from '../../services/offlineService';
+import NetInfo from '@react-native-community/netinfo';
 
 const styles = StyleSheet.create({
   container: {
@@ -118,6 +121,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
   },
+  emptySubText: {
+    color: Colors.textLight,
+    marginTop: 8,
+    fontSize: 14,
+  },
   modalContainer: {
     padding: 20,
     margin: 0,
@@ -200,11 +208,55 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     height: 40,
   },
+  offlineCard: {
+    backgroundColor: Colors.background,
+  },
+  offlineIcon: {
+    marginLeft: 8,
+  },
+  offlineChip: {
+    backgroundColor: Colors.background,
+    borderRadius: 16,
+  },
+  offlineChipText: {
+    color: Colors.textLight,
+  },
+  offlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 8,
+  },
+  offlineIndicatorText: {
+    color: Colors.textLight,
+  },
+  syncButton: {
+    padding: 0,
+  },
+  offlineModeIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 8,
+  },
+  offlineModeText: {
+    color: Colors.textLight,
+  },
+  debugButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  debugButton: {
+    flex: 1,
+  },
 });
 
 export default function MarkersScreen() {
   const insets = useSafeAreaInsets();
+  const { isConnected, syncOfflineData, isSyncing } = useNetwork();
   const [locations, setLocations] = useState<Location[]>([]);
+  const [offlineLocations, setOfflineLocations] = useState<Location[]>([]);
   const [selectedType, setSelectedType] = useState<LocationType | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -219,7 +271,15 @@ export default function MarkersScreen() {
 
   useEffect(() => {
     fetchLocations();
+    fetchOfflineLocations();
   }, []);
+
+  useEffect(() => {
+    if (isConnected) {
+      fetchLocations();
+      fetchOfflineLocations();
+    }
+  }, [isConnected]);
 
   useEffect(() => {
     if (loading) {
@@ -233,7 +293,7 @@ export default function MarkersScreen() {
     } else {
       spinValue.setValue(0);
     }
-  }, [loading]);
+  }, [loading, spinValue]);
 
   const spin = spinValue.interpolate({
     inputRange: [0, 1],
@@ -245,10 +305,24 @@ export default function MarkersScreen() {
       setLoading(true);
       const data = await locationService.getLocations();
       setLocations(data);
+      console.log('[Markers] Locations fetched:', data.length);
     } catch (error) {
-      console.error('Error fetching locations:', error);
+      console.error('[Markers] Error fetching locations:', error);
+      // Don't show error to user, just set empty array
+      setLocations([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchOfflineLocations = async () => {
+    try {
+      const data = await offlineService.getLocalLocations();
+      setOfflineLocations(data);
+      console.log('[Markers] Offline locations fetched:', data.length);
+    } catch (error) {
+      console.error('[Markers] Error fetching offline locations:', error);
+      setOfflineLocations([]);
     }
   };
 
@@ -257,14 +331,19 @@ export default function MarkersScreen() {
     try {
       const data = await locationService.getLocations();
       setLocations(data);
+      await fetchOfflineLocations();
+      console.log('[Markers] Refresh completed successfully');
     } catch (error) {
-      console.error('Error refreshing locations:', error);
+      console.error('[Markers] Error refreshing locations:', error);
+      // Don't show error to user, just continue
     } finally {
       setRefreshing(false);
     }
   }, []);
 
-  const filteredLocations = locations.filter((location) => {
+  const allLocations = [...locations, ...offlineLocations];
+
+  const filteredLocations = allLocations.filter((location) => {
     const matchesSearch = searchQuery
       ? location.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (location.description?.toLowerCase() || '').includes(searchQuery.toLowerCase())
@@ -273,7 +352,26 @@ export default function MarkersScreen() {
     return matchesSearch && matchesType;
   });
 
+  // Check if we're in offline mode
+  const isOfflineMode = !isConnected || locations.length === 0;
+
   const handleEditLocation = (location: Location) => {
+    const isOffline = location.id.startsWith('local_');
+
+    if (isOffline) {
+      Alert.alert(
+        'Çevrimdışı Kayıt',
+        'Bu kayıt henüz senkronize edilmemiş. Düzenlemek için önce senkronize edin.',
+        [
+          {
+            text: 'Tamam',
+            style: 'default',
+          },
+        ]
+      );
+      return;
+    }
+
     setSelectedLocation(location);
     setEditTitle(location.title);
     setEditDescription(location.description || '');
@@ -307,9 +405,13 @@ export default function MarkersScreen() {
   const handleDelete = () => {
     if (!selectedLocation) return;
 
+    const isOffline = selectedLocation.id.startsWith('local_');
+
     Alert.alert(
       'Konumu Sil',
-      'Bu konumu silmek istediğinizden emin misiniz?',
+      isOffline
+        ? 'Bu çevrimdışı kaydı silmek istediğinizden emin misiniz?'
+        : 'Bu konumu silmek istediğinizden emin misiniz?',
       [
         {
           text: 'İptal',
@@ -321,8 +423,13 @@ export default function MarkersScreen() {
           onPress: async () => {
             try {
               setSaving(true);
-              await locationService.deleteLocation(selectedLocation.id);
-              await fetchLocations();
+              if (isOffline) {
+                await offlineService.deleteLocalLocation(selectedLocation.id);
+                await fetchOfflineLocations();
+              } else {
+                await locationService.deleteLocation(selectedLocation.id);
+                await fetchLocations();
+              }
               setEditModalVisible(false);
               resetEditForm();
             } catch (error) {
@@ -335,6 +442,66 @@ export default function MarkersScreen() {
       ],
       { cancelable: true }
     );
+  };
+
+  const handleSyncOfflineData = async () => {
+    if (isSyncing) return;
+
+    // Check internet connection
+    const netInfo = await NetInfo.fetch();
+    if (!netInfo.isConnected) {
+      Alert.alert(
+        'İnternet Bağlantısı Yok',
+        'Senkronizasyon için internet bağlantısı gereklidir.',
+        [{ text: 'Tamam', style: 'default' }]
+      );
+      return;
+    }
+
+    try {
+      await syncOfflineData();
+      await fetchLocations();
+      await fetchOfflineLocations();
+    } catch (error) {
+      console.error('Error syncing offline data:', error);
+      Alert.alert(
+        'Senkronizasyon Hatası',
+        'Veriler senkronize edilirken bir hata oluştu.',
+        [{ text: 'Tamam', style: 'default' }]
+      );
+    }
+  };
+
+  const handleAddTestData = async () => {
+    try {
+      await offlineService.addTestLocations();
+      await fetchOfflineLocations();
+      Alert.alert(
+        'Test Verileri Eklendi',
+        '3 adet test konumu eklendi. Şimdi listeyi kontrol edin.',
+        [{ text: 'Tamam', style: 'default' }]
+      );
+    } catch (error) {
+      console.error('Error adding test data:', error);
+      Alert.alert(
+        'Hata',
+        'Test verileri eklenirken bir hata oluştu.',
+        [{ text: 'Tamam', style: 'default' }]
+      );
+    }
+  };
+
+  const handleCheckStorage = async () => {
+    try {
+      const status = await offlineService.checkStorageStatus();
+      Alert.alert(
+        'Storage Durumu',
+        `Local konumlar: ${status.localCount}\nQueue: ${status.queueCount}`,
+        [{ text: 'Tamam', style: 'default' }]
+      );
+    } catch (error) {
+      console.error('Error checking storage:', error);
+    }
   };
 
   const resetEditForm = () => {
@@ -369,56 +536,74 @@ export default function MarkersScreen() {
     }
   };
 
-  const renderLocationCard = ({ item }: { item: Location }) => (
-    <Pressable
-      onPress={() => handleEditLocation(item)}
-      style={({ pressed }) => [
-        styles.cardPressable,
-        pressed && { opacity: 0.7 }
-      ]}
-    >
-      <Surface style={styles.card} elevation={0}>
-        <Card.Content style={styles.cardContent}>
-          <View style={styles.cardHeader}>
-            <View style={[
-              styles.iconContainer,
-              { backgroundColor: item.type === 'WETLAND' ? 'rgba(52, 199, 89, 0.1)' : 'rgba(0, 122, 255, 0.1)' }
-            ]}>
-              <MaterialCommunityIcons
-                name={item.type === 'WETLAND' ? 'water' : 'warehouse'}
-                size={22}
-                color={item.type === 'WETLAND' ? Colors.secondary : Colors.primary}
-              />
-            </View>
-            <Text variant="titleMedium" style={styles.cardTitle}>
-              {item.title}
-            </Text>
-          </View>
+  const renderLocationCard = ({ item }: { item: Location }) => {
+    const isOffline = item.id.startsWith('local_');
 
-          {item.description ? (
-            <Text variant="bodyMedium" style={styles.description}>
-              {item.description}
-            </Text>
-          ) : null}
+    return (
+      <Pressable
+        onPress={() => handleEditLocation(item)}
+        style={({ pressed }) => [
+          styles.cardPressable,
+          pressed && { opacity: 0.7 }
+        ]}
+      >
+        <Surface style={[styles.card, isOffline && styles.offlineCard]} elevation={0}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.cardHeader}>
+              <View style={[
+                styles.iconContainer,
+                { backgroundColor: isOffline ? 'rgba(255, 149, 0, 0.1)' : (item.type === 'WETLAND' ? 'rgba(52, 199, 89, 0.1)' : 'rgba(0, 122, 255, 0.1)') }
+              ]}>
+                <MaterialCommunityIcons
+                  name={item.type === 'WETLAND' ? 'water' : 'warehouse'}
+                  size={22}
+                  color={isOffline ? Colors.warning : (item.type === 'WETLAND' ? Colors.secondary : Colors.primary)}
+                />
+              </View>
+              <Text variant="titleMedium" style={styles.cardTitle}>
+                {item.title}
+              </Text>
+              {isOffline && (
+                <MaterialCommunityIcons
+                  name="wifi-off"
+                  size={16}
+                  color={Colors.warning}
+                  style={styles.offlineIcon}
+                />
+              )}
+            </View>
 
-          <View style={styles.coordinates}>
-            <View style={styles.coordinateItem}>
-              <MaterialCommunityIcons name="latitude" size={16} color={Colors.textLight} />
-              <Text variant="bodySmall" style={styles.coordinateText}>
-                {item.latitude.toFixed(4)}
+            {item.description ? (
+              <Text variant="bodyMedium" style={styles.description}>
+                {item.description}
               </Text>
+            ) : null}
+
+            {isOffline && (
+              <Chip
+                icon="wifi-off"
+                style={styles.offlineChip}
+                textStyle={styles.offlineChipText}
+              >
+                Çevrimdışı
+              </Chip>
+            )}
+
+            <View style={styles.coordinates}>
+              <View style={styles.coordinateItem}>
+                <MaterialCommunityIcons name="latitude" size={16} color={Colors.textLight} />
+                <Text style={styles.coordinateText}>{item.latitude.toFixed(4)}</Text>
+              </View>
+              <View style={styles.coordinateItem}>
+                <MaterialCommunityIcons name="longitude" size={16} color={Colors.textLight} />
+                <Text style={styles.coordinateText}>{item.longitude.toFixed(4)}</Text>
+              </View>
             </View>
-            <View style={styles.coordinateItem}>
-              <MaterialCommunityIcons name="longitude" size={16} color={Colors.textLight} />
-              <Text variant="bodySmall" style={styles.coordinateText}>
-                {item.longitude.toFixed(4)}
-              </Text>
-            </View>
-          </View>
-        </Card.Content>
-      </Surface>
-    </Pressable>
-  );
+          </Card.Content>
+        </Surface>
+      </Pressable>
+    );
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -443,6 +628,43 @@ export default function MarkersScreen() {
             CSV
           </Button>
         </View>
+
+        {/* Debug buttons for testing */}
+        {__DEV__ && (
+          <View style={styles.debugButtons}>
+            <Button
+              mode="outlined"
+              onPress={handleAddTestData}
+              compact
+              style={styles.debugButton}
+            >
+              Test Veri Ekle
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={handleCheckStorage}
+              compact
+              style={styles.debugButton}
+            >
+              Storage Kontrol
+            </Button>
+          </View>
+        )}
+
+        {/* Offline mode indicator */}
+        {isOfflineMode && (
+          <View style={styles.offlineModeIndicator}>
+            <MaterialCommunityIcons
+              name="wifi-off"
+              size={16}
+              color={Colors.warning}
+            />
+            <Text style={styles.offlineModeText}>
+              Çevrimdışı mod - Sadece yerel veriler gösteriliyor
+            </Text>
+          </View>
+        )}
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -476,6 +698,33 @@ export default function MarkersScreen() {
             Depo
           </Chip>
         </ScrollView>
+
+        {/* Offline sync indicator */}
+        {offlineLocations.length > 0 && (
+          <View style={styles.offlineIndicator}>
+            <MaterialCommunityIcons
+              name="wifi-off"
+              size={16}
+              color={Colors.warning}
+            />
+            <Text style={styles.offlineIndicatorText}>
+              {offlineLocations.length} çevrimdışı kayıt
+            </Text>
+            {isConnected && (
+              <Button
+                mode="text"
+                onPress={handleSyncOfflineData}
+                disabled={isSyncing}
+                loading={isSyncing}
+                compact
+                style={styles.syncButton}
+                textColor={Colors.primary}
+              >
+                {isSyncing ? 'Senkronize Ediliyor...' : 'Senkronize Et'}
+              </Button>
+            )}
+          </View>
+        )}
       </Surface>
 
       <FlatList
@@ -506,7 +755,17 @@ export default function MarkersScreen() {
                   size={48}
                   color={Colors.textLight}
                 />
-                <Text style={styles.emptyText}>Konum bulunamadı</Text>
+                <Text style={styles.emptyText}>
+                  {isOfflineMode
+                    ? 'Çevrimdışı modda konum bulunamadı'
+                    : 'Konum bulunamadı'
+                  }
+                </Text>
+                {isOfflineMode && (
+                  <Text style={styles.emptySubText}>
+                    İnternet bağlantısı geldiğinde tüm konumlar görünecek
+                  </Text>
+                )}
               </>
             )}
           </View>
