@@ -341,7 +341,7 @@ export default function MarkersScreen() {
     }
   }, []);
 
-  const allLocations = [...locations, ...offlineLocations];
+  const allLocations = [...(locations || []), ...(offlineLocations || [])];
 
   const filteredLocations = allLocations.filter((location) => {
     const matchesSearch = searchQuery
@@ -478,7 +478,7 @@ export default function MarkersScreen() {
       await fetchOfflineLocations();
       Alert.alert(
         'Test Verileri Eklendi',
-        '3 adet test konumu eklendi. Şimdi listeyi kontrol edin.',
+        '5 adet test konumu eklendi. Şimdi listeyi kontrol edin.',
         [{ text: 'Tamam', style: 'default' }]
       );
     } catch (error) {
@@ -606,7 +606,10 @@ export default function MarkersScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, {
+      paddingTop: Platform.select({ ios: insets.top, android: 0 }),
+      paddingBottom: Platform.select({ ios: 0, android: insets.bottom })
+    }]}>
       <Surface style={styles.header} elevation={0}>
         <View style={styles.headerTop}>
           <Searchbar
@@ -628,28 +631,6 @@ export default function MarkersScreen() {
             CSV
           </Button>
         </View>
-
-        {/* Debug buttons for testing */}
-        {__DEV__ && (
-          <View style={styles.debugButtons}>
-            <Button
-              mode="outlined"
-              onPress={handleAddTestData}
-              compact
-              style={styles.debugButton}
-            >
-              Test Veri Ekle
-            </Button>
-            <Button
-              mode="outlined"
-              onPress={handleCheckStorage}
-              compact
-              style={styles.debugButton}
-            >
-              Storage Kontrol
-            </Button>
-          </View>
-        )}
 
         {/* Offline mode indicator */}
         {isOfflineMode && (

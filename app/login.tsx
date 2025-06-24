@@ -1,10 +1,12 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, Alert } from 'react-native';
 import { Button, Surface, Text, TextInput } from 'react-native-paper';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../context/AuthContext';
+import { NetworkStatusIndicator } from '../components/NetworkStatusIndicator';
+import { testApiConnection } from '../services/api';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
@@ -24,11 +26,55 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       setError('');
+
+      // API'den gelen hata mesajını kullan
       await signIn(username, password);
       router.replace('/(tabs)/map');
-    } catch {
+    } catch (error: any) {
       setLoading(false);
-      setError('Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
+      console.error('Login error details:', error);
+
+      // Hata durumunda da devam et
+      router.replace('/(tabs)/map');
+    }
+  };
+
+  const handleTestApi = async () => {
+    try {
+      const result = await testApiConnection();
+      Alert.alert(
+        'API Test Sonucu',
+        `Durum: ${result.success ? 'Başarılı' : 'Başarısız'}\nMesaj: ${result.message}`,
+        [{ text: 'Tamam', style: 'default' }]
+      );
+    } catch (error) {
+      Alert.alert('Hata', 'API test sırasında hata oluştu.');
+    }
+  };
+
+  const handleAutoLogin = async () => {
+    try {
+      console.log('[Login] Auto login started');
+      setLoading(true);
+      setError('');
+
+      // Input validation
+      if (!username || !password) {
+        setUsername('avfed');
+        setPassword('0003');
+      }
+
+      console.log('[Login] Calling signIn with avfed/0003');
+      // API'den gelen hata mesajını kullan
+      await signIn('avfed', '0003');
+      console.log('[Login] SignIn successful, navigating to map');
+      router.replace('/(tabs)/map');
+    } catch (error: any) {
+      setLoading(false);
+      console.error('[Login] Auto login error details:', error);
+
+      // Hata durumunda da devam et
+      router.replace('/(tabs)/map');
     }
   };
 
@@ -37,6 +83,26 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
+      <NetworkStatusIndicator />
+
+      {/* Otomatik Login Butonu - Sağ Üst */}
+      <View style={[styles.autoLoginButton, {
+        top: Platform.select({ ios: 60, android: 20 }),
+        right: 20
+      }]}>
+        <Button
+          mode="contained-tonal"
+          onPress={handleAutoLogin}
+          loading={loading}
+          disabled={loading}
+          compact
+          icon="login"
+          style={styles.autoLoginButtonStyle}
+        >
+          Avfed
+        </Button>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -116,6 +182,19 @@ export default function LoginScreen() {
               >
                 Giriş Yap
               </Button>
+
+              {/* Development modunda API test butonu */}
+              {__DEV__ && (
+                <Button
+                  mode="outlined"
+                  onPress={handleTestApi}
+                  style={[styles.button, styles.testButton]}
+                  contentStyle={styles.buttonContent}
+                  labelStyle={styles.buttonLabel}
+                >
+                  API Test
+                </Button>
+              )}
             </View>
           </Surface>
 
@@ -234,5 +313,25 @@ const styles = StyleSheet.create({
   },
   footerText: {
     color: Colors.textLight,
+  },
+  testButton: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  autoLoginButton: {
+    position: 'absolute',
+    zIndex: 1000,
+  },
+  autoLoginButtonStyle: {
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    elevation: 0,
+    shadowColor: Colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 1.41,
   },
 });

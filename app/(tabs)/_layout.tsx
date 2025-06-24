@@ -22,17 +22,23 @@ export default function TabLayout() {
           borderTopWidth: 0.5,
           borderTopColor: Platform.select({ ios: '#D1D1D6', android: Colors.border }),
           backgroundColor: Platform.select({ ios: 'rgba(255,255,255,0.95)', android: Colors.white }),
-          height: Platform.select({ ios: 88, android: 64 }),
-          paddingBottom: Platform.select({ ios: insets.bottom, android: 8 }),
+          height: Platform.select({
+            ios: 88 + insets.bottom,
+            android: 64 + insets.bottom
+          }),
+          paddingBottom: Platform.select({
+            ios: insets.bottom,
+            android: insets.bottom
+          }),
           paddingTop: Platform.select({ ios: 8, android: 8 }),
-          elevation: 0,
-          shadowColor: '#000',
-          shadowOffset: {
-            width: 0,
-            height: -2,
-          },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
+          elevation: Platform.select({ ios: 0, android: 8 }),
+          shadowColor: Platform.select({ ios: '#000', android: '#000' }),
+          shadowOffset: Platform.select({
+            ios: { width: 0, height: -2 },
+            android: { width: 0, height: -2 }
+          }),
+          shadowOpacity: Platform.select({ ios: 0.1, android: 0.1 }),
+          shadowRadius: Platform.select({ ios: 4, android: 4 }),
         },
         headerStyle: {
           backgroundColor: Colors.white,

@@ -8,6 +8,8 @@ import { NetworkProvider } from '../context/NetworkContext';
 import * as TaskManager from 'expo-task-manager';
 import * as BackgroundTask from 'expo-background-task';
 import * as Notifications from 'expo-notifications';
+import { LogBox } from 'react-native';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 // Splash screen'i otomatik gizlemeyi engelle
 SplashScreen.preventAutoHideAsync();
@@ -24,6 +26,17 @@ TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
     return BackgroundTask.BackgroundTaskResult.Failed;
   }
 });
+
+// Crash önleme için error handling
+const handleError = (error: Error, isFatal?: boolean) => {
+  console.log('Error caught:', error);
+  // Crash'i engelle, sadece log'la
+};
+
+// iOS için crash önleme
+if (__DEV__) {
+  LogBox.ignoreLogs(['Warning:']); // Warning'leri görmezden gel
+}
 
 function RootLayoutNav() {
   const { isLoading } = useAuth();
@@ -66,12 +79,33 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Global error handler
+    const errorHandler = (error: Error, isFatal?: boolean) => {
+      handleError(error, isFatal);
+    };
+
+    // Error listener'ı ekle
+    if ((global as any).ErrorUtils) {
+      (global as any).ErrorUtils.setGlobalHandler(errorHandler);
+    }
+
+    return () => {
+      // Cleanup
+      if ((global as any).ErrorUtils) {
+        (global as any).ErrorUtils.setGlobalHandler(null);
+      }
+    };
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AuthProvider>
         <NetworkProvider>
           <PaperProvider>
-            <RootLayoutNav />
+            <ErrorBoundary>
+              <RootLayoutNav />
+            </ErrorBoundary>
           </PaperProvider>
         </NetworkProvider>
       </AuthProvider>

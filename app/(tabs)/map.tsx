@@ -189,10 +189,13 @@ export default function MapScreen() {
     }
   };
 
-  const allLocations = [...locations, ...offlineLocations];
+  const allLocations = [...(locations || []), ...(offlineLocations || [])];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, {
+      paddingTop: Platform.select({ ios: 0, android: insets.top }),
+      paddingBottom: Platform.select({ ios: 0, android: insets.bottom })
+    }]}>
       <NetworkStatusIndicator />
       <MapView
         style={styles.map}

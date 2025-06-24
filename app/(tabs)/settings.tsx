@@ -108,7 +108,10 @@ export default function SettingsScreen() {
       style={styles.container}
       contentContainerStyle={[
         styles.contentContainer,
-        { paddingBottom: insets.bottom + 20 }
+        {
+          paddingTop: Platform.select({ ios: 0, android: insets.top }),
+          paddingBottom: insets.bottom + 20
+        }
       ]}
     >
       <Surface style={styles.profileCard}>

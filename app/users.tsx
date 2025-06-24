@@ -9,6 +9,15 @@ import { userService } from '../services/api';
 import { User, UserRole } from '../types';
 import NetInfo from '@react-native-community/netinfo';
 
+// Safe console log function
+const safeLog = (message: string, data?: any) => {
+  try {
+    console.log(message, data);
+  } catch (error) {
+    console.log(message, 'Data logging failed');
+  }
+};
+
 export default function UsersScreen() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,12 +53,12 @@ export default function UsersScreen() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      console.log('[Users] Fetching users...');
+      safeLog('[Users] Fetching users...');
       const fetchedUsers = await userService.getUsers();
-      console.log('[Users] Fetched users:', fetchedUsers);
+      safeLog('[Users] Fetched users:', fetchedUsers);
       setUsers(fetchedUsers);
     } catch (error) {
-      console.error('[Users] Error fetching users:', error);
+      safeLog('[Users] Error fetching users:', error);
       Alert.alert('Hata', 'Kullanıcılar yüklenirken bir hata oluştu.');
     } finally {
       setLoading(false);
@@ -95,7 +104,7 @@ export default function UsersScreen() {
       setIsEditModalVisible(false);
       Alert.alert('Başarılı', 'Kullanıcı başarıyla güncellendi.');
     } catch (error) {
-      console.error('Error updating user:', error);
+      safeLog('[Users] Error updating user:', error);
       Alert.alert('Hata', 'Kullanıcı güncellenirken bir hata oluştu.');
     }
   };
@@ -121,7 +130,7 @@ export default function UsersScreen() {
       setIsDeleteDialogVisible(false);
       Alert.alert('Başarılı', 'Kullanıcı başarıyla silindi.');
     } catch (error) {
-      console.error('Error deleting user:', error);
+      safeLog('[Users] Error deleting user:', error);
       Alert.alert('Hata', 'Kullanıcı silinirken bir hata oluştu.');
     }
   };

@@ -118,30 +118,48 @@ export const offlineService = {
       const testLocations: Location[] = [
         {
           id: 'local_test_1',
-          title: 'Test Sulak Alan 1',
-          description: 'Bu bir test sulak alanıdır',
+          title: 'Güzelyurt Sulak Alanı',
+          description: 'Güzelyurt bölgesinde bulunan önemli sulak alan. Kuş gözlemi için ideal.',
           latitude: 35.1856,
           longitude: 33.3823,
           type: 'WETLAND',
-          city: 'KKTC'
+          city: 'Güzelyurt'
         },
         {
           id: 'local_test_2',
-          title: 'Test Depo 1',
-          description: 'Bu bir test deposudur',
+          title: 'Lefkoşa Merkez Depo',
+          description: 'Lefkoşa merkezde bulunan av malzemeleri deposu. Tüm ekipmanlar mevcuttur.',
           latitude: 35.1956,
           longitude: 33.3923,
           type: 'DEPOT',
-          city: 'KKTC'
+          city: 'Lefkoşa'
         },
         {
           id: 'local_test_3',
-          title: 'Test Sulak Alan 2',
-          description: 'İkinci test sulak alanı',
+          title: 'İskele Sahil Sulak Alanı',
+          description: 'İskele sahili boyunca uzanan doğal sulak alan. Deniz kuşları için önemli habitat.',
           latitude: 35.1756,
           longitude: 33.3723,
           type: 'WETLAND',
-          city: 'KKTC'
+          city: 'İskele'
+        },
+        {
+          id: 'local_test_4',
+          title: 'Girne Dağ Depo',
+          description: 'Girne dağlarında bulunan dağ avcılığı ekipmanları deposu.',
+          latitude: 35.2056,
+          longitude: 33.4023,
+          type: 'DEPOT',
+          city: 'Girne'
+        },
+        {
+          id: 'local_test_5',
+          title: 'Maraş Sulak Alanı',
+          description: 'Maraş bölgesinde bulunan tuzlu su sulak alanı. Flamingo gözlemi için popüler.',
+          latitude: 35.1656,
+          longitude: 33.3623,
+          type: 'WETLAND',
+          city: 'Maraş'
         }
       ];
 

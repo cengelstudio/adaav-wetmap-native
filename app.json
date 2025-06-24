@@ -42,7 +42,8 @@
         "image": "./assets/sulakalan.png",
         "resizeMode": "contain",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "edgeToEdgeEnabled": true
     },
     "web": {
       "favicon": "./assets/sulakalan.png"
